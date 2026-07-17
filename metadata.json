@@ -1,0 +1,6 @@
+{
+  "name": "يومياتي AI",
+  "description": "تطبيق صحة نفسية ويوميات متكامل مدعوم بالذكاء الاصطناعي والمستشار الذكي ونظام تتبع عادات مبتكر.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
