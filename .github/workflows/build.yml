@@ -17,14 +17,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # خطوة سحرية لإنشاء ملف .env وحقن المفتاح السري داخله بأمان أثناء البناء
+    # حقن مفتاح جينيرال السري بأمان
     - name: Inject Gemini API Key
       run: |
         echo "MAIN_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
         echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
-    - name: Generate Correct Gradle Wrapper
-      run: gradle wrapper
+    # إجبار السيرفر على استخدام نسخة مستقرة ومتوافقة 100% مع الأندرويد
+    - name: Generate Compatible Gradle Wrapper
+      run: gradle wrapper --gradle-version 8.7
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
