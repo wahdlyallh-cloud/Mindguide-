@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    // تم تحديث الرابط هنا من v1beta إلى v1 لإنهاء خطأ 404 تماماً
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
 
     // Set 60 seconds timeouts as mandated by OkHttp guidelines
     private val client = OkHttpClient.Builder()
@@ -143,7 +144,7 @@ object GeminiService {
             
             التوجيهات الهامة:
             1. أجب دائمًا باللغة العربية الفصحى الدافئة والداعمة والمهنية (كأنك معالج نفسي أو صديق حكيم).
-            2. استخدم التواريخ والأوقات والتفاصيل المذكورة في سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين، متى تحسن مزاجه، تكرار الأشخاص، إلخ).
+            2. استخدم التواريخ والأوقات والتفاصيل المذكورة في سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين, متى تحسن مزاجه، تكرار الأشخاص، إلخ).
             3. إذا سأل المستخدم عن نمط معين (مثلاً: "ما الذي يجعلني سعيداً؟")، قم بتحليل اليوميات التاريخية المتاحة واستخلص الأنماط النفسية المشتركة (مثال: "تحسن مزاجك بنسبة 80% في الأيام التي مارست فيها الرياضة أو ذكرت فيها عائلتك").
             4. حافظ على سرية تامة وأمان واحرص على توجيهه لزيارة المعالج عند استشعار تدهور حاد أو خطورة.
         """.trimIndent()
