@@ -50,14 +50,16 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     fun updateCustomApiKey(key: String) {
-        customApiKey = key
-        prefs.edit().putString("custom_api_key", key).apply()
-        GeminiService.customApiKey = if (key.isBlank()) null else key
+        val sanitizedKey = key.trim().filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+        customApiKey = sanitizedKey
+        prefs.edit().putString("custom_api_key", sanitizedKey).apply()
+        GeminiService.customApiKey = if (sanitizedKey.isBlank()) null else sanitizedKey
     }
 
     init {
         val savedKey = prefs.getString("custom_api_key", "") ?: ""
-        GeminiService.customApiKey = if (savedKey.isBlank()) null else savedKey
+        val sanitizedKey = savedKey.trim().filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+        GeminiService.customApiKey = if (sanitizedKey.isBlank()) null else sanitizedKey
     }
 
     var currentTabState by mutableStateOf(0)

@@ -1,6 +1,7 @@
 package com.example.data.api
 
 import android.util.Log
+import com.example.BuildConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,8 +16,10 @@ object GeminiService {
     private const val TAG = "GeminiService"
     private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
+    // Expose a mutable customApiKey that can be overridden at runtime by the user
     var customApiKey: String? = null
 
+    // Set 60 seconds timeouts as mandated by OkHttp guidelines
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -29,32 +32,36 @@ object GeminiService {
      * Common generic call to Gemini REST API.
      */
     private suspend fun callGemini(prompt: String, systemInstruction: String? = null): String = withContext(Dispatchers.IO) {
-        val apiKey = customApiKey?.trim()
+        val apiKey = customApiKey?.trim()?.filter { it.isLetterOrDigit() || it == '_' || it == '-' }
         if (apiKey.isNullOrBlank()) {
             Log.e(TAG, "Custom API Key is missing!")
             return@withContext "خطأ: لم يتم تفعيل مفتاح الـ API الخاص بـ Gemini. يجب عليك إضافة مفتاح الـ API الخاص بك لتتمكن من استخدام ميزات الذكاء الاصطناعي والمستشار الذكي بنجاح. يرجى التوجه إلى صفحة الإعدادات ⚙️ بالأعلى لإدخال مفتاح API من Google Gemini الخاص بك لتفعيل الخدمة."
         }
 
         try {
-            // دمج الأوامر في نص واحد لضمان قبول السيرفر للطلب 100% بدون أخطاء هيكلية
-            val finalPrompt = if (!systemInstruction.isNullOrBlank()) {
-                "$systemInstruction\n\n---\n\nالمحتوى المُراد معالجته:\n$prompt"
-            } else {
-                prompt
-            }
-
-            // بناء أبسط هيكل JSON معتمد عالمياً لدى جوجل
+            // Build direct REST payload
             val root = JSONObject()
             val contentsArray = JSONArray()
             val contentObj = JSONObject()
             val partsArray = JSONArray()
             val partObj = JSONObject()
             
-            partObj.put("text", finalPrompt)
+            partObj.put("text", prompt)
             partsArray.put(partObj)
             contentObj.put("parts", partsArray)
             contentsArray.put(contentObj)
             root.put("contents", contentsArray)
+
+            // System instructions if present
+            if (systemInstruction != null) {
+                val sysObj = JSONObject()
+                val sysParts = JSONArray()
+                val sysPart = JSONObject()
+                sysPart.put("text", systemInstruction)
+                sysParts.put(sysPart)
+                sysObj.put("parts", sysParts)
+                root.put("systemInstruction", sysObj)
+            }
 
             val requestBody = root.toString().toRequestBody(mediaType)
             val request = Request.Builder()
@@ -66,7 +73,31 @@ object GeminiService {
                 val bodyString = response.body?.string()
                 if (!response.isSuccessful) {
                     Log.e(TAG, "Response failed: Code ${response.code}, Body: $bodyString")
-                    return@withContext "حدث خطأ أثناء التواصل مع الذكاء الاصطناعي (رمز ${response.code})."
+                    val parsedError = try {
+                        if (!bodyString.isNullOrBlank()) {
+                            val errObj = JSONObject(bodyString).optJSONObject("error")
+                            val rawMsg = errObj?.optString("message") ?: ""
+                            
+                            when {
+                                rawMsg.contains("API key not valid", ignoreCase = true) -> 
+                                    "مفتاح الـ API الخاص بك غير صالح أو غير صحيح (API key not valid). يرجى التأكد من نسخ المفتاح بشكل سليم وبدون أي أخطاء من لوحة Google AI Studio."
+                                rawMsg.contains("API key blocked", ignoreCase = true) -> 
+                                    "تم حظر مفتاح الـ API هذا (API key blocked). قد يكون بسبب قيود برمجية أو جغرافية أو حظر من Google Cloud."
+                                rawMsg.contains("quota", ignoreCase = true) || rawMsg.contains("limit", ignoreCase = true) -> 
+                                    "لقد تجاوزت الحصة المجانية أو حد معدل الطلبات المتاح لمفتاحك (Quota/Rate Limit Exceeded). يرجى المحاولة لاحقاً."
+                                rawMsg.contains("disabled", ignoreCase = true) -> 
+                                    "خدمة Generative Language API غير مفعلة في مشروعك على Google Cloud. يرجى التأكد من تفعيلها للمفتاح."
+                                rawMsg.contains("location", ignoreCase = true) || rawMsg.contains("unsupported", ignoreCase = true) -> 
+                                    "خدمة الذكاء الاصطناعي (Gemini) غير مدعومة في منطقتك الجغرافية الحالية حالياً، أو يرجى التحقق من إعدادات الـ VPN لديك."
+                                else -> rawMsg.ifBlank { "لم يرجع الخادم تفاصيل محددة." }
+                            }
+                        } else {
+                            "لا توجد تفاصيل خطأ قادمة من الخادم."
+                        }
+                    } catch (e: Exception) {
+                        "حدث خطأ أثناء معالجة تفاصيل الرد من الخادم."
+                    }
+                    return@withContext "حدث خطأ أثناء التواصل مع الذكاء الاصطناعي (رمز ${response.code}):\n$parsedError"
                 }
 
                 if (bodyString.isNullOrEmpty()) {
@@ -170,7 +201,7 @@ object GeminiService {
             2. **مخطط الحالة المزاجية**: تكرار المشاعر وتطورها ونسبتها العامة.
             3. **أبرز الإنجازات والتقدم السلوكي**: السلوكيات الإيجابية والالتزام بالعادات.
             4. **الإخفاقات ومصادر القلق والتوتر**: المواضيع الحساسة والمخاوف ومثيرات القلق المكتشفة.
-            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت in المذكرات.
+            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت في المذكرات.
             6. **اقتراحات ومحاور للنقاش مع المعالج**: قائمة بـ 3-5 أسئلة أو نقاط يوصى بطرحها في الجلسة القادمة.
             7. **مقارنة بالفترة السابقة**: هل هناك تحسن ملحوظ أم تراجع أم استقرار.
         """.trimIndent()
@@ -182,6 +213,7 @@ object GeminiService {
 
     /**
      * AI Fadfada Chat session within a single diary entry.
+     * Takes the diary context (text, attachments details) and the chat history, and returns the AI's warm response.
      */
     suspend fun getFadfadaResponse(
         currentDraftContent: String,
