@@ -17,22 +17,25 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # حقن مفتاح جينيرال السري بأمان
+    # حقن مفتاح جينيرال السري بأمان داخل ملفات البيئة
     - name: Inject Gemini API Key
       run: |
         echo "MAIN_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
         echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
-    # إعطاء الصلاحيات لملف gradlew
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    # تثبيت نسخة Gradle 9.3.1 التي يطلبها مشروعك بالظبط مباشرة على السيرفر
+    - name: Setup Gradle 9.3.1
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '9.3.1'
 
-    # بناء التطبيق باستخدام ملف gradlew الموجود في مشروعك والذي يمتلك نسخة 9.3.1
+    # بناء التطبيق مباشرة باستخدام النسخة المثبتة لتجنب مشكلة الملف المفقود
     - name: Build Android APK
-      run: ./gradlew assembleDebug
+      run: gradle assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: my-gemini-app
         path: app/build/outputs/apk/debug/app-debug.apk
+        
