@@ -23,10 +23,12 @@ jobs:
         echo "MAIN_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
         echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
 
-    # توليد ملف المفتاح تلقائياً في ثوانٍ لتخطي مشكلة الـ Keystore المفقود
+    # توليد ملف المفتاح في المجلد الرئيسي وفي مجلد app لتغطية كافة الاحتمالات
     - name: Generate Missing Debug Keystore
       run: |
-        keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        mkdir -p app
+        cp debug.keystore app/debug.keystore
 
     # تثبيت نسخة Gradle 9.3.1 المستقرة مباشرة على السيرفر
     - name: Setup Gradle 9.3.1
