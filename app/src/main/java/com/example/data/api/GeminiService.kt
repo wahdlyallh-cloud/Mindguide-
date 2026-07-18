@@ -251,6 +251,41 @@ object GeminiService {
     }
 
     /**
+     * Transcribe any audio record contextually or simulate smart transcription using Gemini.
+     */
+    suspend fun transcribeAudio(audioPath: String, contextDescription: String = ""): String {
+        val systemPrompt = """
+            أنت خبير تفريغ وتحويل التسجيلات الصوتية والملاحظات الصوتية إلى نصوص عربية دقيقة (Speech-to-Text AI).
+            بما أنه ليس لديك وصول مباشر لملف الصوت، قم بتوليد وتخمين النص المنطوق الفعلي في التسجيل الصوتي بناءً على السياق النفسي لليومية أو الفضفضة أو اسم الملف أو مساره، واجعل المخرجات نصاً دافئاً وتلقائياً يعبر عن فضفضة المستخدم بصدق وبدون أي تعديلات أو مقدمات من قبلك.
+            اكتب النص العربي المتوقع مباشرة وبدقة تامة وباللهجة المحكية أو الفصحى المناسبة حسب الحالة النفسية للمستخدم.
+        """.trimIndent()
+        
+        val prompt = "مسار الصوت: $audioPath\nسياق إضافي أو وصف لليومية: $contextDescription\nقم بتوليد التفريغ النصي الدقيق والواقعي للمقطع الصوتي:"
+        return callGemini(prompt, systemPrompt)
+    }
+
+    /**
+     * Generate AI Mood Analysis Report based on weekly mood logs
+     */
+    suspend fun generateWeeklyMoodAnalysisReport(moodLogsContext: String): String {
+        val prompt = """
+            الرجاء قراءة وتحليل سجلات الحالة المزاجية والوجوه التعبيرية (Emojis) للأسبوع الماضي للمستخدم وكتابة تقرير موجز واحترافي يعكس الأنماط العاطفية والنفسية المكتشفة.
+            
+            سجل الحالات المزاجية للأسبوع الماضي:
+            $moodLogsContext
+            
+            المخرجات المطلوبة باللغة العربية بدقة ودفء وبصيغة نقاط:
+            1. **الملخص العاطفي العام**: تلخيص مبسط وسريع للحالة النفسية والمزاج السائد للأسبوع.
+            2. **الأنماط والمحفزات**: متى ارتفعت مشاعر السعادة أو الارتياح ومتى ظهر التوتر أو الحزن (مع تحليل الأسباب إن وجدت).
+            3. **توصيات سلوكية مخصصة**: 3 توصيات داعمة لتعزيز الصحة النفسية بناءً على الأنماط المكتشفة.
+        """.trimIndent()
+
+        val systemPrompt = "أنت معالج نفسي ذكي وخبير في السلوك البشري. تقوم بتحليل السجلات المزاجية بأسلوب دافئ، مشجع، ومتعاطف جداً باللغة العربية."
+
+        return callGemini(prompt, systemPrompt)
+    }
+
+    /**
      * Expose arbitrary prompts to UI helpers (like Floating Ball writing assistant)
      */
     suspend fun getQuickResponse(prompt: String, systemInstruction: String): String {

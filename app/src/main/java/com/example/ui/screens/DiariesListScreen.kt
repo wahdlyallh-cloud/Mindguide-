@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -44,9 +46,15 @@ fun DiariesListScreen(
     var aiHelperLoading by remember { mutableStateOf(false) }
 
     // Append Text / Edit State
+    val context = LocalContext.current
+    val appendPrefs = remember { context.getSharedPreferences("diaries_list_append_drafts", Context.MODE_PRIVATE) }
     var showAppendDialog by remember { mutableStateOf(false) }
     var selectedEntryForAppend by remember { mutableStateOf<DiaryEntry?>(null) }
-    var appendTextValue by remember { mutableStateOf("") }
+    var appendTextValue by remember { mutableStateOf(appendPrefs.getString("append_text_value", "") ?: "") }
+
+    LaunchedEffect(appendTextValue) {
+        appendPrefs.edit().putString("append_text_value", appendTextValue).apply()
+    }
 
     // Selected Type Filter: "diary" (اليومية) or "reflection" (خاطرة)
     var selectedTypeFilter by remember { mutableStateOf("diary") }
@@ -548,6 +556,7 @@ fun DayGroupCard(
                 dayEntries.forEach { entry ->
                     ChildDiaryCard(
                         entry = entry,
+                        viewModel = viewModel,
                         onAiHelper = { onAiHelper(entry) },
                         onAppend = { onAppend(entry) },
                         onDelete = { onDelete(entry.id) }
@@ -561,6 +570,7 @@ fun DayGroupCard(
 @Composable
 fun ChildDiaryCard(
     entry: DiaryEntry,
+    viewModel: DiaryViewModel,
     onAiHelper: () -> Unit,
     onAppend: () -> Unit,
     onDelete: () -> Unit
@@ -655,6 +665,94 @@ fun ChildDiaryCard(
                     .clickable { expanded = !expanded },
                 maxLines = if (expanded) Int.MAX_VALUE else 4
             )
+
+            // If card is expanded, show details of attachments (especially AUDIO with Transcription!)
+            if (expanded && (entry.hasAudio || entry.hasPhoto || entry.hasVideo || entry.hasPdf || !entry.webLinks.isNullOrEmpty())) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    // Audio Player with transcription
+                    if (entry.hasAudio && !entry.audioPath.isNullOrEmpty()) {
+                        val audioPath = entry.audioPath!!
+                        val isTranscribing = viewModel.transcribingAudioPaths[audioPath] == true
+                        val transcribedText = viewModel.audioTranscriptions[audioPath]
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("🎤 الملاحظة الصوتية المفرغة", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            if (!transcribedText.isNullOrEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.White, RoundedCornerShape(6.dp))
+                                        .border(1.dp, Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    Text(
+                                        text = transcribedText,
+                                        fontSize = 11.sp,
+                                        lineHeight = 16.sp,
+                                        color = Color.DarkGray,
+                                        textAlign = TextAlign.End,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = { viewModel.transcribeAudio(audioPath, entry.title + " " + entry.content) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(26.dp),
+                                    enabled = !isTranscribing
+                                ) {
+                                    if (isTranscribing) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), color = Color.White)
+                                    } else {
+                                        Text("📝 تحويل الريكورد إلى نص مكتوب", fontSize = 9.sp, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // PDF attachment
+                    if (entry.hasPdf && !entry.pdfPath.isNullOrEmpty() && !entry.pdfPath!!.startsWith("drawing:")) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFFEF3C7), RoundedCornerShape(6.dp))
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Red)
+                            Text("📄 ملف PDF ملحق: ${entry.pdfPath!!}", fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
 
             // Render Attached Media Labels beautifully
             if (entry.hasPhoto || entry.hasAudio || entry.hasVideo || entry.hasPdf || !entry.webLinks.isNullOrEmpty()) {

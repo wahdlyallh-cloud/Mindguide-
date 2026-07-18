@@ -5,8 +5,9 @@ import android.content.Context
 import android.util.Log
 import org.json.JSONObject
 import org.json.JSONArray
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,7 +46,10 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("yawmiyati_prefs", Context.MODE_PRIVATE)
 
-    var isFloatingBallEnabled by mutableStateOf(prefs.getBoolean("floating_ball_enabled", true))
+    var currentTabState by mutableStateOf(0)
+    var currentScreenState by mutableStateOf("main")
+
+    var isFloatingBallEnabled by mutableStateOf(prefs.getBoolean("floating_ball_enabled", false))
         private set
 
     fun updateFloatingBallEnabled(enabled: Boolean) {
@@ -95,10 +99,29 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     val chatMessages: StateFlow<List<ChatMessage>> = repository.allChatMessages.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+         scope = viewModelScope,
+         started = SharingStarted.WhileSubscribed(5000),
+         initialValue = emptyList()
+     )
+
+    // Dynamic states for audio transcriptions on records across the app
+    val audioTranscriptions = mutableStateMapOf<String, String>()
+    val transcribingAudioPaths = mutableStateMapOf<String, Boolean>()
+
+    fun transcribeAudio(audioPath: String, contextDescription: String = "") {
+        if (audioTranscriptions.containsKey(audioPath)) return
+        transcribingAudioPaths[audioPath] = true
+        viewModelScope.launch {
+            try {
+                val text = GeminiService.transcribeAudio(audioPath, contextDescription)
+                audioTranscriptions[audioPath] = text
+            } catch (e: Exception) {
+                audioTranscriptions[audioPath] = "تعذر تحويل الصوت إلى نص: ${e.localizedMessage}"
+            } finally {
+                transcribingAudioPaths[audioPath] = false
+            }
+        }
+    }
 
     // Current Active Draft (Auto-saves continuously so nothing is lost)
     private var isSuppressAutoSave = false
@@ -257,11 +280,65 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
             if (!isSuppressAutoSave) autoSaveCurrentDraft()
         }
 
+    private val draftPrefs = application.getSharedPreferences("diary_draft_prefs", Context.MODE_PRIVATE)
+
+    private fun saveDraftToPrefs() {
+        draftPrefs.edit().apply {
+            putInt("draft_id", draftId ?: -1)
+            putString("draft_title", draftTitle)
+            putString("draft_content", draftContent)
+            putString("draft_selected_moods", draftSelectedMoods.joinToString(","))
+            putInt("draft_importance", draftImportance)
+            putString("draft_audio_path", draftAudioPath)
+            putString("draft_photo_path", draftPhotoPath)
+            putString("draft_video_path", draftVideoPath)
+            putString("draft_pdf_path", draftPdfPath)
+            putString("draft_web_links", draftWebLinks)
+            putString("draft_drawing_data", draftDrawingData)
+            putString("draft_ai_mood_analysis", draftAiMoodAnalysis)
+            putBoolean("draft_is_pinned", draftIsPinned)
+            putBoolean("draft_is_archived", draftIsArchived)
+            putBoolean("draft_is_favorite", draftIsFavorite)
+            putBoolean("draft_is_deleted", draftIsDeleted)
+            putLong("draft_reminder_timestamp", draftReminderTimestamp ?: -1L)
+            putString("draft_entry_type", draftEntryType)
+            apply()
+        }
+    }
+
+    private fun loadDraftFromPrefs() {
+        suppressAutoSave {
+            val savedId = draftPrefs.getInt("draft_id", -1)
+            draftId = if (savedId == -1) null else savedId
+            draftTitle = draftPrefs.getString("draft_title", "") ?: ""
+            draftContent = draftPrefs.getString("draft_content", "") ?: ""
+            val moodsStr = draftPrefs.getString("draft_selected_moods", "") ?: ""
+            draftSelectedMoods = if (moodsStr.isNotEmpty()) moodsStr.split(",") else emptyList()
+            draftImportance = draftPrefs.getInt("draft_importance", 3)
+            draftAudioPath = draftPrefs.getString("draft_audio_path", null)
+            draftPhotoPath = draftPrefs.getString("draft_photo_path", null)
+            draftVideoPath = draftPrefs.getString("draft_video_path", null)
+            draftPdfPath = draftPrefs.getString("draft_pdf_path", null)
+            draftWebLinks = draftPrefs.getString("draft_web_links", "") ?: ""
+            draftDrawingData = draftPrefs.getString("draft_drawing_data", null)
+            draftAiMoodAnalysis = draftPrefs.getString("draft_ai_mood_analysis", "") ?: ""
+            draftIsPinned = draftPrefs.getBoolean("draft_is_pinned", false)
+            draftIsArchived = draftPrefs.getBoolean("draft_is_archived", false)
+            draftIsFavorite = draftPrefs.getBoolean("draft_is_favorite", false)
+            draftIsDeleted = draftPrefs.getBoolean("draft_is_deleted", false)
+            val savedRem = draftPrefs.getLong("draft_reminder_timestamp", -1L)
+            draftReminderTimestamp = if (savedRem == -1L) null else savedRem
+            draftEntryType = draftPrefs.getString("draft_entry_type", "diary") ?: "diary"
+        }
+    }
+
     /**
      * Auto-saves the current draft properties immediately to the Room SQLite database
      */
     fun autoSaveCurrentDraft() {
-        // Skip auto-saving completely empty new drafts
+        saveDraftToPrefs()
+
+        // Skip auto-saving completely empty new drafts to DB
         if (draftId == null && draftTitle.isEmpty() && draftContent.isEmpty() && 
             draftSelectedMoods.isEmpty() && draftAudioPath.isNullOrEmpty() && 
             draftPhotoPath.isNullOrEmpty() && draftVideoPath.isNullOrEmpty() && 
@@ -335,6 +412,7 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     init {
+        loadDraftFromPrefs()
         // Pre-populate default habits if database is empty
         viewModelScope.launch {
             val list = repository.allHabits.first()
@@ -456,6 +534,54 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Add a book with its associated attachments (PDF, audio, image, video, link, drawing)
+     */
+    fun insertBook(
+        title: String,
+        notes: String,
+        dateString: String,
+        audioPath: String? = null,
+        photoPath: String? = null,
+        videoPath: String? = null,
+        pdfPath: String? = null,
+        webLinks: String? = null,
+        importance: Int = 3
+    ) {
+        viewModelScope.launch {
+            val bookEntry = DiaryEntry(
+                dateString = dateString,
+                timeString = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date()),
+                title = title,
+                content = notes,
+                moods = "📖",
+                entryType = "book",
+                hasAudio = !audioPath.isNullOrEmpty(),
+                audioPath = audioPath,
+                hasPhoto = !photoPath.isNullOrEmpty(),
+                photoPath = photoPath,
+                hasVideo = !videoPath.isNullOrEmpty(),
+                videoPath = videoPath,
+                hasPdf = !pdfPath.isNullOrEmpty(),
+                pdfPath = pdfPath,
+                webLinks = webLinks?.ifEmpty { null },
+                importance = importance
+            )
+            repository.insertDiaryEntry(bookEntry)
+            
+            // Log a life event
+            repository.insertLifeEvent(
+                LifeEvent(
+                    dateString = dateString,
+                    timeString = bookEntry.timeString,
+                    type = "DIARY",
+                    description = "أضفت كتاباً جديداً لمكتبتك الشاملة: $title 📖",
+                    moodIcon = "📖"
+                )
+            )
+        }
+    }
+
+    /**
      * Load an entry into draft for editing
      */
     fun loadEntryToDraft(entry: DiaryEntry) {
@@ -469,7 +595,7 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
             draftPhotoPath = entry.photoPath
             draftVideoPath = entry.videoPath
             if (entry.pdfPath?.startsWith("drawing:") == true) {
-                draftDrawingData = entry.pdfPath.substringAfter("drawing:")
+                draftDrawingData = entry.pdfPath!!.substringAfter("drawing:")
                 draftPdfPath = null
             } else {
                 draftPdfPath = entry.pdfPath
@@ -563,6 +689,7 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
             draftReminderTimestamp = null
             draftEntryType = "diary"
         }
+        draftPrefs.edit().clear().apply()
     }
 
     // Direct Events Logging (Sleep, Medicine, Sports, Moods)
@@ -667,6 +794,21 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
     fun logCustomMood(emoji: String, name: String) {
         viewModelScope.launch {
             val dateStr = getCurrentDateString()
+            val timeStr = getCurrentTimeString()
+            repository.insertLifeEvent(
+                LifeEvent(
+                    dateString = dateStr,
+                    timeString = timeStr,
+                    type = "MOOD",
+                    description = "سجلت حالة مزاجية مباشرة: $name",
+                    moodIcon = emoji
+                )
+            )
+        }
+    }
+
+    fun logCustomMoodForDate(emoji: String, name: String, dateStr: String) {
+        viewModelScope.launch {
             val timeStr = getCurrentTimeString()
             repository.insertLifeEvent(
                 LifeEvent(
@@ -1111,6 +1253,166 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun insertImportedEntries(entries: List<DiaryEntry>) {
+        viewModelScope.launch {
+            entries.forEach { entry ->
+                repository.insertDiaryEntry(entry)
+            }
+        }
+    }
+
+    fun parseExternalEntries(rawInput: String, format: String): List<DiaryEntry> {
+        val parsed = mutableListOf<DiaryEntry>()
+        val defaultDate = getCurrentDateString()
+        val defaultTime = getCurrentTimeString()
+
+        try {
+            when (format) {
+                "dayone" -> {
+                    val root = org.json.JSONObject(rawInput)
+                    val entriesArr = root.optJSONArray("entries")
+                    if (entriesArr != null) {
+                        for (i in 0 until entriesArr.length()) {
+                            val obj = entriesArr.getJSONObject(i)
+                            val text = obj.optString("text", "")
+                            if (text.isNotBlank()) {
+                                val creationDateStr = obj.optString("creationDate", "")
+                                var dateStr = defaultDate
+                                var timeStr = defaultTime
+                                if (creationDateStr.length >= 10) {
+                                    dateStr = creationDateStr.substring(0, 10)
+                                }
+                                if (creationDateStr.contains("T") && creationDateStr.length >= 16) {
+                                    val tIndex = creationDateStr.indexOf("T")
+                                    timeStr = creationDateStr.substring(tIndex + 1, tIndex + 6)
+                                }
+                                val lines = text.trim().split("\n")
+                                val title = if (lines.isNotEmpty()) lines[0].trim().replace("#", "").take(50) else "يومية مستوردة"
+                                val content = if (lines.size > 1) lines.drop(1).joinToString("\n").trim() else text
+
+                                parsed.add(
+                                    DiaryEntry(
+                                        id = 0,
+                                        dateString = dateStr,
+                                        timeString = timeStr,
+                                        title = title.ifEmpty { "يومية مستوردة" },
+                                        content = content,
+                                        moods = "😊",
+                                        entryType = "diary"
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+                "journey" -> {
+                    if (rawInput.trim().startsWith("[")) {
+                        val arr = org.json.JSONArray(rawInput)
+                        for (i in 0 until arr.length()) {
+                            val obj = arr.getJSONObject(i)
+                            val text = obj.optString("text", "")
+                            if (text.isNotBlank()) {
+                                val dateLong = obj.optLong("date", System.currentTimeMillis())
+                                val date = java.util.Date(dateLong)
+                                val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(date)
+                                val timeStr = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(date)
+                                val lines = text.trim().split("\n")
+                                val title = if (lines.isNotEmpty()) lines[0].trim().replace("#", "").take(50) else "يومية مستوردة"
+                                val content = if (lines.size > 1) lines.drop(1).joinToString("\n").trim() else text
+
+                                parsed.add(
+                                    DiaryEntry(
+                                        id = 0,
+                                        dateString = dateStr,
+                                        timeString = timeStr,
+                                        title = title.ifEmpty { "يومية مستوردة" },
+                                        content = content,
+                                        moods = "📝",
+                                        entryType = "diary"
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        val root = org.json.JSONObject(rawInput)
+                        val entriesArr = root.optJSONArray("entries")
+                        if (entriesArr != null) {
+                            for (i in 0 until entriesArr.length()) {
+                                val obj = entriesArr.getJSONObject(i)
+                                val text = obj.optString("text", "")
+                                if (text.isNotBlank()) {
+                                    val dateLong = obj.optLong("date", System.currentTimeMillis())
+                                    val date = java.util.Date(dateLong)
+                                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(date)
+                                    val timeStr = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(date)
+                                    val lines = text.trim().split("\n")
+                                    val title = if (lines.isNotEmpty()) lines[0].trim().replace("#", "").take(50) else "يومية مستوردة"
+                                    val content = if (lines.size > 1) lines.drop(1).joinToString("\n").trim() else text
+
+                                    parsed.add(
+                                        DiaryEntry(
+                                            id = 0,
+                                            dateString = dateStr,
+                                            timeString = timeStr,
+                                            title = title.ifEmpty { "يومية مستوردة" },
+                                            content = content,
+                                            moods = "📝",
+                                            entryType = "diary"
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                "bulk_text" -> {
+                    val blocks = rawInput.split(Regex("---+|===+|\\n\\s*\\n\\s*\\n"))
+                    blocks.forEach { block ->
+                        val trimmedBlock = block.trim()
+                        if (trimmedBlock.isNotBlank()) {
+                            val lines = trimmedBlock.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                            if (lines.isNotEmpty()) {
+                                var dateStr = defaultDate
+                                var title = "يومية مستوردة"
+                                var startIndex = 0
+
+                                val firstLine = lines[0]
+                                if (firstLine.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+                                    dateStr = firstLine
+                                    startIndex = 1
+                                }
+
+                                if (lines.size > startIndex) {
+                                    title = lines[startIndex].replace("#", "").take(50)
+                                    startIndex++
+                                }
+
+                                val contentLines = lines.drop(startIndex)
+                                val content = if (contentLines.isNotEmpty()) contentLines.joinToString("\n") else trimmedBlock
+
+                                parsed.add(
+                                    DiaryEntry(
+                                        id = 0,
+                                        dateString = dateStr,
+                                        timeString = defaultTime,
+                                        title = title.ifEmpty { "يومية مستوردة" },
+                                        content = content,
+                                        moods = "💭",
+                                        entryType = "diary"
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return parsed
+    }
+
     fun getLastSyncTime(email: String): String {
         return prefs.getString("last_cloud_sync_$email", "لم يتم المزامنة بعد") ?: "لم يتم المزامنة بعد"
     }
@@ -1187,6 +1489,61 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
                 tasksReportResult = "حدث خطأ أثناء توليد تقرير المهام اليومية: ${e.localizedMessage}"
             } finally {
                 isTasksReportLoading = false
+            }
+        }
+    }
+
+    // --- WEEKLY MOOD REPORT STATES & METHODS ---
+    var isWeeklyMoodAnalysisLoading by mutableStateOf(false)
+        private set
+    var weeklyMoodAnalysisResult by mutableStateOf("")
+
+    fun generateWeeklyMoodReport() {
+        viewModelScope.launch {
+            isWeeklyMoodAnalysisLoading = true
+            weeklyMoodAnalysisResult = ""
+
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val cal = Calendar.getInstance()
+            val past7Days = (0 until 7).map {
+                val dateStr = sdf.format(cal.time)
+                cal.add(Calendar.DAY_OF_YEAR, -1)
+                dateStr
+            }
+
+            // Filter LifeEvent of type "MOOD" for the last 7 days
+            val moodEvents = allEvents.value.filter { it.type == "MOOD" && it.dateString in past7Days }
+
+            val contextBuilder = java.lang.StringBuilder()
+            contextBuilder.append("سجلات المزاج اليومية للمستخدم في الـ 7 أيام الماضية:\n")
+            if (moodEvents.isEmpty()) {
+                contextBuilder.append("لا توجد سجلات مزاج مخزنة في الـ 7 أيام الماضية.\n")
+            } else {
+                // Group by date to present nicely
+                val groupedByDate = moodEvents.groupBy { it.dateString }
+                groupedByDate.forEach { (dateStr, events) ->
+                    contextBuilder.append("- التاريخ: $dateStr\n")
+                    events.forEach { ev ->
+                        contextBuilder.append("  الوقت: ${ev.timeString}, المزاج: ${ev.moodIcon} (${ev.description.replace("سجلت حالة مزاجية مباشرة: ", "")})\n")
+                    }
+                }
+            }
+
+            try {
+                val systemPrompt = """
+                    أنت أخصائي ومعالج سلوكي معرفي ومستشار صحة نفسية ذكي وودود (Yawmiyati Mood Assistant).
+                    قم بتحليل سجلات الحالة المزاجية والرموز التعبيرية للمستخدم في الـ 7 أيام الماضية بدقة، وحدد الأنماط الشعورية السائدة (مثل تقلبات المزاج، الاستقرار، محفزات المشاعر الإيجابية أو السلبية).
+                    ثم قدم تقريراً نصياً دافئاً، ومختصراً جداً (بين 3 و 5 أسطر فقط) باللغة العربية الفصحى يعكس الأنماط الشعورية مع نصيحة أو لفتة مشجعة وداعمة لصحته النفسية.
+                    تجنب الإطالة، واجعل الأسلوب مريحاً ومفعماً بالتعاطف والإيجابية.
+                """.trimIndent()
+
+                val prompt = "إليك سجلات المزاج للأسبوع الماضي:\n\n$contextBuilder\n\nالرجاء إعداد التقرير النصي المختصر الدافئ."
+                val response = GeminiService.getQuickResponse(prompt, systemPrompt)
+                weeklyMoodAnalysisResult = response
+            } catch (e: Exception) {
+                weeklyMoodAnalysisResult = "تعذر تحليل سجلات المزاج حالياً: ${e.localizedMessage}"
+            } finally {
+                isWeeklyMoodAnalysisLoading = false
             }
         }
     }

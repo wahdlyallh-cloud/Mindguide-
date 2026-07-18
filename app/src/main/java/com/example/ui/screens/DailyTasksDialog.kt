@@ -9,6 +9,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -29,6 +30,23 @@ import com.example.viewmodel.DiaryViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
+fun getPastDays(count: Int): List<Triple<Date, String, String>> {
+    val list = mutableListOf<Triple<Date, String, String>>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val dayNameSdf = SimpleDateFormat("EEEE", Locale("ar"))
+    val displayDateSdf = SimpleDateFormat("dd MMM", Locale("ar"))
+    
+    val cal = Calendar.getInstance()
+    for (i in 0 until count) {
+        val date = cal.time
+        val dateStr = sdf.format(date)
+        val label = if (i == 0) "اليوم (${displayDateSdf.format(date)})" else "${dayNameSdf.format(date)} (${displayDateSdf.format(date)})"
+        list.add(Triple(date, dateStr, label))
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+    }
+    return list
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DailyTasksDialog(
@@ -40,10 +58,18 @@ fun DailyTasksDialog(
     val habitLogs by viewModel.allHabitLogs.collectAsState()
 
     var activeTab by remember { mutableStateOf(0) } // 0: Checklist, 1: Reports
-    var newTaskName by remember { mutableStateOf("") }
+    val sharedPrefs = remember { context.getSharedPreferences("task_draft_prefs", Context.MODE_PRIVATE) }
+    var newTaskName by remember { mutableStateOf(sharedPrefs.getString("new_task_name", "") ?: "") }
+
+    LaunchedEffect(newTaskName) {
+        sharedPrefs.edit().putString("new_task_name", newTaskName).apply()
+    }
 
     // Selected date for checklist (defaults to today)
     val todayStr = remember { viewModel.getCurrentDateString() }
+    
+    var checklistRange by remember { mutableStateOf("DAY") } // "DAY", "WEEK", "MONTH"
+    var expandedDateString by remember { mutableStateOf<String?>(todayStr) }
     
     // Active habit logs for today
     val completedHabitIdsForToday = habitLogs
@@ -177,6 +203,7 @@ fun DailyTasksDialog(
                                         if (newTaskName.trim().isNotEmpty()) {
                                             viewModel.addCustomHabit(newTaskName.trim())
                                             newTaskName = ""
+                                            sharedPrefs.edit().remove("new_task_name").apply()
                                             Toast.makeText(context, "تم إضافة المهمة بنجاح! 🎯", Toast.LENGTH_SHORT).show()
                                         }
                                     },
@@ -199,7 +226,52 @@ fun DailyTasksDialog(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            // View range selector
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val ranges = listOf(
+                                    Triple("MONTH", "عرض شهري 📅", "الشهر"),
+                                    Triple("WEEK", "عرض أسبوعي 🗓️", "الأسبوع"),
+                                    Triple("DAY", "عرض يومي ☀️", "اليوم")
+                                )
+                                
+                                ranges.forEach { (rangeKey, _, text) ->
+                                    val isSelected = checklistRange == rangeKey
+                                    Button(
+                                        onClick = { checklistRange = rangeKey },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFFAF7F0),
+                                            contentColor = if (isSelected) Color.White else Color.Gray
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFE3D9C6).copy(alpha = 0.4f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(vertical = 6.dp)
+                                    ) {
+                                        Text(text = text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                
+                                Text(
+                                    text = "نطاق العرض:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.End
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
                             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                             Spacer(modifier = Modifier.height(10.dp))
 
@@ -216,138 +288,367 @@ fun DailyTasksDialog(
                                     }
                                 }
                             } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(habits) { habit ->
-                                        val isDone = completedHabitIdsForToday.contains(habit.id)
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF7F0).copy(alpha = 0.6f)),
-                                            shape = RoundedCornerShape(14.dp),
-                                            border = BorderStroke(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.3f))
-                                        ) {
-                                            Column(modifier = Modifier.fillMaxWidth()) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable {
-                                                            viewModel.toggleHabitForDate(habit.id, !isDone, todayStr)
-                                                        }
-                                                        .padding(12.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    // Left: Delete Action
-                                                    IconButton(
-                                                        onClick = { viewModel.deleteHabit(habit.id) },
-                                                        modifier = Modifier.size(28.dp)
-                                                    ) {
-                                                        Icon(Icons.Default.Delete, contentDescription = "حذف المهمة", tint = Color.Red.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                                                    }
-
-                                                    // Right: Info & Status
+                                if (checklistRange == "DAY") {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(habits) { habit ->
+                                            val isDone = completedHabitIdsForToday.contains(habit.id)
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth().testTag("habit_card_${habit.id}"),
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF7F0).copy(alpha = 0.6f)),
+                                                shape = RoundedCornerShape(14.dp),
+                                                border = BorderStroke(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.3f))
+                                            ) {
+                                                Column(modifier = Modifier.fillMaxWidth()) {
                                                     Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .clickable {
+                                                                viewModel.toggleHabitForDate(habit.id, !isDone, todayStr)
+                                                            }
+                                                            .padding(12.dp),
                                                         verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                        horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
-                                                        Column(horizontalAlignment = Alignment.End) {
-                                                            Text(
-                                                                text = habit.name,
-                                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                                color = MaterialTheme.colorScheme.onSurface,
-                                                                textAlign = TextAlign.End
-                                                            )
-                                                            Text(
-                                                                text = if (habit.isReminderEnabled) "🔔 منبه نشط: ${habit.reminderTime}" else "🔕 لا توجد تنبيهات",
-                                                                fontSize = 10.sp,
-                                                                color = if (habit.isReminderEnabled) MaterialTheme.colorScheme.primary else Color.Gray
-                                                            )
+                                                        // Left: Delete Action
+                                                        IconButton(
+                                                            onClick = { viewModel.deleteHabit(habit.id) },
+                                                            modifier = Modifier.size(28.dp)
+                                                        ) {
+                                                            Icon(Icons.Default.Delete, contentDescription = "حذف المهمة", tint = Color.Red.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                                                         }
 
-                                                        // Customized Circular Checkbox
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(24.dp)
-                                                                .background(
-                                                                    if (isDone) MaterialTheme.colorScheme.primary else Color.White,
-                                                                    RoundedCornerShape(6.dp)
-                                                                )
-                                                                .border(
-                                                                    1.dp,
-                                                                    if (isDone) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
-                                                                    RoundedCornerShape(6.dp)
-                                                                ),
-                                                            contentAlignment = Alignment.Center
+                                                        // Right: Info & Status
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                         ) {
-                                                            if (isDone) {
-                                                                Icon(Icons.Default.Check, contentDescription = "مكتمل", tint = Color.White, modifier = Modifier.size(14.dp))
+                                                            Column(horizontalAlignment = Alignment.End) {
+                                                                Text(
+                                                                    text = habit.name,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                                    textAlign = TextAlign.End
+                                                                )
+                                                                Text(
+                                                                    text = if (habit.isReminderEnabled) "🔔 منبه نشط: ${habit.reminderTime}" else "🔕 لا توجد تنبيهات",
+                                                                    fontSize = 10.sp,
+                                                                    color = if (habit.isReminderEnabled) MaterialTheme.colorScheme.primary else Color.Gray
+                                                                )
+                                                            }
+
+                                                            // Customized Circular Checkbox
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(24.dp)
+                                                                    .background(
+                                                                        if (isDone) MaterialTheme.colorScheme.primary else Color.White,
+                                                                        RoundedCornerShape(6.dp)
+                                                                    )
+                                                                    .border(
+                                                                        1.dp,
+                                                                        if (isDone) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
+                                                                        RoundedCornerShape(6.dp)
+                                                                    ),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                if (isDone) {
+                                                                    Icon(Icons.Default.Check, contentDescription = "مكتمل", tint = Color.White, modifier = Modifier.size(14.dp))
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                }
 
-                                                // Expanded inline quick set reminder area
-                                                Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.15f))
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    // Minute and hour adjusters
+                                                    // Expanded inline quick set reminder area
+                                                    Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.15f))
                                                     Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 12.dp, vertical = 6.dp),
                                                         verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
-                                                        val timeParts = (habit.reminderTime ?: "08:30").split(":")
-                                                        var hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 8
-                                                        var minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 30
-
-                                                        IconButton(
-                                                            onClick = {
-                                                                hour = (hour + 1) % 24
-                                                                viewModel.updateHabitReminder(habit.id, String.format(Locale.US, "%02d:%02d", hour, minute), habit.isReminderEnabled)
-                                                            },
-                                                            modifier = Modifier.size(26.dp)
+                                                        // Minute and hour adjusters
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                         ) {
-                                                            Text("+س", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                            val timeParts = (habit.reminderTime ?: "08:30").split(":")
+                                                            var hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 8
+                                                            var minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 30
+
+                                                            IconButton(
+                                                                onClick = {
+                                                                    hour = (hour + 1) % 24
+                                                                    viewModel.updateHabitReminder(habit.id, String.format(Locale.US, "%02d:%02d", hour, minute), habit.isReminderEnabled)
+                                                                },
+                                                                modifier = Modifier.size(26.dp)
+                                                            ) {
+                                                                Text("+س", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                            }
+
+                                                            Text(
+                                                                text = String.format(Locale.US, "%02d:%02d", hour, minute),
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+
+                                                            IconButton(
+                                                                onClick = {
+                                                                    minute = (minute + 5) % 60
+                                                                    viewModel.updateHabitReminder(habit.id, String.format(Locale.US, "%02d:%02d", hour, minute), habit.isReminderEnabled)
+                                                                },
+                                                                modifier = Modifier.size(26.dp)
+                                                            ) {
+                                                                Text("+د", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                            }
                                                         }
 
+                                                        // Enable reminder switch
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Text("منبه المهمة", fontSize = 10.sp, color = Color.Gray)
+                                                            Switch(
+                                                                checked = habit.isReminderEnabled,
+                                                                onCheckedChange = { isEnabled ->
+                                                                    viewModel.updateHabitReminder(habit.id, habit.reminderTime ?: "08:30", isEnabled)
+                                                                    val msg = if (isEnabled) "تم تفعيل منبه: ${habit.name}" else "تم إلغاء المنبه"
+                                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    val daysCount = if (checklistRange == "WEEK") 7 else 30
+                                    val daysList = remember(checklistRange) { getPastDays(daysCount) }
+                                    
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Summary Card
+                                        item {
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth().testTag("habit_summary_card_${checklistRange}"),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)),
+                                                shape = RoundedCornerShape(14.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    val daysCompletedCount = daysList.count { (_, dateStr, _) ->
+                                                        val completedCountForDay = habitLogs.count { it.dateString == dateStr && it.isCompleted }
+                                                        completedCountForDay > 0
+                                                    }
+                                                    val totalAvailableTasksCount = habits.size * daysCount
+                                                    val totalCompletedLogsCount = habitLogs.count { log ->
+                                                        log.isCompleted && daysList.any { it.second == log.dateString }
+                                                    }
+                                                    val completionPercent = if (totalAvailableTasksCount > 0) {
+                                                        (totalCompletedLogsCount * 100) / totalAvailableTasksCount
+                                                    } else 0
+                                                    
+                                                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
                                                         Text(
-                                                            text = String.format(Locale.US, "%02d:%02d", hour, minute),
+                                                            text = if (checklistRange == "WEEK") "ملخص الالتزام الأسبوعي 📊" else "ملخص الالتزام الشهري 📊",
                                                             fontSize = 12.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = MaterialTheme.colorScheme.primary
                                                         )
+                                                        Spacer(modifier = Modifier.height(2.dp))
+                                                        Text(
+                                                            text = "أنجزت مهاماً في $daysCompletedCount أيام من أصل $daysCount.",
+                                                            fontSize = 11.sp,
+                                                            color = Color.DarkGray
+                                                        )
+                                                        Text(
+                                                            text = "نسبة الإنجاز الإجمالية: $completionPercent% ($totalCompletedLogsCount/$totalAvailableTasksCount)",
+                                                            fontSize = 10.sp,
+                                                            color = Color.Gray
+                                                        )
+                                                    }
+                                                    
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(44.dp)
+                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = "$completionPercent%",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
 
-                                                        IconButton(
-                                                            onClick = {
-                                                                minute = (minute + 5) % 60
-                                                                viewModel.updateHabitReminder(habit.id, String.format(Locale.US, "%02d:%02d", hour, minute), habit.isReminderEnabled)
-                                                            },
-                                                            modifier = Modifier.size(26.dp)
+                                        // List of Days
+                                        items(daysList) { (_, dateStr, label) ->
+                                            val isExpanded = expandedDateString == dateStr
+                                            val completedLogsForDay = habitLogs.filter { it.dateString == dateStr && it.isCompleted }
+                                            val completedCount = completedLogsForDay.size
+                                            val totalCount = habits.size
+                                            
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        expandedDateString = if (isExpanded) null else dateStr
+                                                    }
+                                                    .testTag("day_card_${dateStr}"),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (isExpanded) Color.White else Color(0xFFFAF7F0).copy(alpha = 0.8f)
+                                                ),
+                                                shape = RoundedCornerShape(14.dp),
+                                                border = BorderStroke(
+                                                    width = 1.dp,
+                                                    color = if (isExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color(0xFFE3D9C6).copy(alpha = 0.3f)
+                                                )
+                                            ) {
+                                                Column(modifier = Modifier.fillMaxWidth()) {
+                                                    // Day Card Header
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(12.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        // Left side: Progress and expand icon
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                         ) {
-                                                            Text("+د", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                            Icon(
+                                                                imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                                                contentDescription = null,
+                                                                tint = Color.Gray,
+                                                                modifier = Modifier.size(20.dp)
+                                                            )
+                                                            
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .background(
+                                                                        when {
+                                                                            completedCount == totalCount && totalCount > 0 -> Color(0xFFD1FAE5)
+                                                                            completedCount > 0 -> Color(0xFFFEF3C7)
+                                                                            else -> Color(0xFFF3F4F6)
+                                                                        },
+                                                                        RoundedCornerShape(6.dp)
+                                                                    )
+                                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = "$completedCount / $totalCount",
+                                                                    fontSize = 10.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = when {
+                                                                        completedCount == totalCount && totalCount > 0 -> Color(0xFF065F46)
+                                                                        completedCount > 0 -> Color(0xFF92400E)
+                                                                        else -> Color(0xFF374151)
+                                                                    }
+                                                                )
+                                                            }
+                                                        }
+                                                        
+                                                        // Right side: Day Label
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = label,
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (isExpanded) MaterialTheme.colorScheme.primary else Color(0xFF26332C)
+                                                            )
                                                         }
                                                     }
-
-                                                    // Enable reminder switch
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                    ) {
-                                                        Text("منبه المهمة", fontSize = 10.sp, color = Color.Gray)
-                                                        Switch(
-                                                            checked = habit.isReminderEnabled,
-                                                            onCheckedChange = { isEnabled ->
-                                                                viewModel.updateHabitReminder(habit.id, habit.reminderTime ?: "08:30", isEnabled)
-                                                                val msg = if (isEnabled) "تم تفعيل منبه: ${habit.name}" else "تم إلغاء المنبه"
-                                                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                    
+                                                    // Day Card Expanded Content
+                                                    AnimatedVisibility(visible = isExpanded) {
+                                                        Column(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .background(Color(0xFFFAF7F0).copy(alpha = 0.4f))
+                                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.2f))
+                                                            Spacer(modifier = Modifier.height(4.dp))
+                                                            
+                                                            habits.forEach { habit ->
+                                                                val isDone = completedLogsForDay.any { it.habitId == habit.id }
+                                                                
+                                                                Row(
+                                                                    modifier = Modifier
+                                                                        .fillMaxWidth()
+                                                                        .clickable {
+                                                                            viewModel.toggleHabitForDate(habit.id, !isDone, dateStr)
+                                                                        }
+                                                                        .background(Color.White, RoundedCornerShape(10.dp))
+                                                                        .border(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                                                        .padding(10.dp),
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                                ) {
+                                                                    Text(
+                                                                        text = if (habit.isReminderEnabled) "🔔 ${habit.reminderTime}" else "🔕 لا توجد تنبيهات",
+                                                                        fontSize = 9.sp,
+                                                                        color = Color.Gray
+                                                                    )
+                                                                    
+                                                                    Row(
+                                                                        verticalAlignment = Alignment.CenterVertically,
+                                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                                    ) {
+                                                                        Text(
+                                                                            text = habit.name,
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            color = Color(0xFF26332C)
+                                                                        )
+                                                                        
+                                                                        Box(
+                                                                            modifier = Modifier
+                                                                                .size(20.dp)
+                                                                                .background(
+                                                                                    if (isDone) MaterialTheme.colorScheme.primary else Color.White,
+                                                                                    RoundedCornerShape(5.dp)
+                                                                                )
+                                                                                .border(
+                                                                                    1.dp,
+                                                                                    if (isDone) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.4f),
+                                                                                    RoundedCornerShape(5.dp)
+                                                                                ),
+                                                                            contentAlignment = Alignment.Center
+                                                                        ) {
+                                                                            if (isDone) {
+                                                                                Icon(Icons.Default.Check, contentDescription = "مكتمل", tint = Color.White, modifier = Modifier.size(12.dp))
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
-                                                        )
+                                                            Spacer(modifier = Modifier.height(4.dp))
+                                                        }
                                                     }
                                                 }
                                             }

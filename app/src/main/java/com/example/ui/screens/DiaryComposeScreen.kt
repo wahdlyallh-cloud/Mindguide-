@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -54,10 +55,16 @@ fun DiaryComposeScreen(
         Pair("🙏", "ممتن")
     )
 
+    val composePrefs = remember { context.getSharedPreferences("compose_screen_drafts", Context.MODE_PRIVATE) }
+
     // Local states for composer workspace controls
     var showLinkDialog by remember { mutableStateOf(false) }
     var showDailyTasksDialog by remember { mutableStateOf(false) }
-    var attachedLinkValue by remember { mutableStateOf("") }
+    var attachedLinkValue by remember { mutableStateOf(composePrefs.getString("attached_link_value", "") ?: "") }
+    
+    LaunchedEffect(attachedLinkValue) {
+        composePrefs.edit().putString("attached_link_value", attachedLinkValue).apply()
+    }
     
     // Recording voice states
     var isRecordingVoice by remember { mutableStateOf(false) }
@@ -74,7 +81,11 @@ fun DiaryComposeScreen(
     // Fadfada states
     var showFadfadaDialog by remember { mutableStateOf(false) }
     var fadfadaMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
-    var fadfadaInputText by remember { mutableStateOf("") }
+    var fadfadaInputText by remember { mutableStateOf(composePrefs.getString("fadfada_input_text", "") ?: "") }
+    
+    LaunchedEffect(fadfadaInputText) {
+        composePrefs.edit().putString("fadfada_input_text", fadfadaInputText).apply()
+    }
     var fadfadaLoading by remember { mutableStateOf(false) }
     var fadfadaDeducingMood by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }

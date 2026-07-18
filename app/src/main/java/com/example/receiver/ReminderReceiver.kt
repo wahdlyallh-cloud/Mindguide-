@@ -12,6 +12,11 @@ import com.example.MainActivity
 
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == "android.intent.action.QUICKBOOT_POWERON") {
+            MainActivity.showPersistentNotification(context)
+            return
+        }
+
         val title = intent.getStringExtra("title") ?: "تذكير يومياتي 🎯"
         val message = intent.getStringExtra("message") ?: "لديك مهمة معلقة الآن!"
         val notificationId = intent.getIntExtra("id", 1001)

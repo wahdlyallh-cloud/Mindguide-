@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -59,6 +61,7 @@ fun HomeScreen(
     var showAddHabitDialog by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
     var showQuickConsultantDialog by remember { mutableStateOf(false) }
+    var showFullCalendarDialog by remember { mutableStateOf(false) }
 
     // Find existing sleep/sports/meds for the selected date to initialize sliders
     val sleepEvent = events.find { it.dateString == selectedDateString && it.type == "SLEEP" }
@@ -111,6 +114,53 @@ fun HomeScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 0. Full Calendar & Library button (above the green/sage hero greeting card)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFullCalendarDialog = true }
+                    .testTag("full_calendar_button"),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F0D9)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF385723).copy(alpha = 0.25f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "التقويم الكامل",
+                        tint = Color(0xFF385723),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = "📅 التقويم الكامل واستعراض الأيام",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF385723),
+                            textAlign = TextAlign.End
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "اضغط لتصفح كل ما حدث في أي يوم (يوميات، كتب، أنشطة، واستشارات AI)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF385723).copy(alpha = 0.8f),
+                            textAlign = TextAlign.End
+                        )
+                    }
+                }
+            }
+        }
+
         // 1. App Header Calming Hero
         item {
             Card(
@@ -439,6 +489,211 @@ fun HomeScreen(
                                     color = if (isSelected) Color.White else Color(0xFF26332C)
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4.5 Daily Mood Tracker Widget
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("mood_tracker_widget_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.5f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFFEF3C7), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("تحديث فوري", fontSize = 9.sp, color = Color(0xFFD69F45), fontWeight = FontWeight.Bold)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("رصد ومتابعة الحالة المزاجية اليومية 🧠", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF26332C))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "كيف تشعر اليوم؟ اختر الأيقونة التعبيرية المناسبة لحالتك لتخزينها في قاعدة البيانات مع طابع زمني دقيق:",
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
+                        color = Color.Gray,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val moodsList = listOf(
+                        Pair("😊", "سعيد"),
+                        Pair("😌", "مرتاح"),
+                        Pair("🤩", "متحمس"),
+                        Pair("😐", "طبيعي"),
+                        Pair("😢", "حزين"),
+                        Pair("😞", "مكتئب"),
+                        Pair("😨", "قلق"),
+                        Pair("😡", "غاضب"),
+                        Pair("🥱", "مرهق"),
+                        Pair("🙏", "ممتن")
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        moodsList.forEach { (emoji, label) ->
+                            val isLogged = events.any { it.dateString == selectedDateString && it.type == "MOOD" && it.moodIcon == emoji }
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .clickable {
+                                        viewModel.logCustomMoodForDate(emoji, label, selectedDateString)
+                                    }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(
+                                            if (isLogged) Color(0xFFECFDF5) else Color(0xFFFAF7F0),
+                                            CircleShape
+                                        )
+                                        .border(
+                                            width = if (isLogged) 2.dp else 1.dp,
+                                            color = if (isLogged) Color(0xFF10B981) else Color(0xFFE3D9C6).copy(alpha = 0.5f),
+                                            shape = CircleShape
+                                        )
+                                        .testTag("mood_icon_${emoji}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(emoji, fontSize = 24.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isLogged) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isLogged) Color(0xFF10B981) else Color(0xFF26332C)
+                                )
+                            }
+                        }
+                    }
+
+                    val todayMoods = events.filter { it.dateString == selectedDateString && it.type == "MOOD" }
+                    if (todayMoods.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = todayMoods.joinToString("، ") { "${it.moodIcon} ${it.description.replace("سجلت حالة مزاجية مباشرة: ", "")}" },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4A6B5D)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("المزاج المسجل لهذا اليوم:", fontSize = 11.sp, color = Color.Gray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // AI Weekly Mood Analysis UI
+                    val isWeeklyLoading = viewModel.isWeeklyMoodAnalysisLoading
+                    val weeklyAnalysis = viewModel.weeklyMoodAnalysisResult
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFFAF7F0).copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { viewModel.generateWeeklyMoodReport() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isWeeklyLoading) Color.Gray else MaterialTheme.colorScheme.primary,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .testTag("generate_weekly_mood_analysis_btn")
+                            ) {
+                                if (isWeeklyLoading) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("تحليل ذكي 🪄", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "تحليل المزاج الأسبوعي بالذكاء الاصطناعي",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF26332C)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("🧠", fontSize = 12.sp)
+                            }
+                        }
+
+                        if (weeklyAnalysis.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.15f))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = weeklyAnalysis,
+                                fontSize = 11.sp,
+                                color = Color(0xFF333333),
+                                textAlign = TextAlign.End,
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("weekly_mood_analysis_result_text")
+                            )
+                        } else if (!isWeeklyLoading) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "اضغط على زر التحليل الذكي أعلاه لمعالجة سجلات مزاجك في الـ 7 أيام الماضية والحصول على تقرير شعوري دافئ.",
+                                fontSize = 10.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -1147,7 +1402,13 @@ fun HomeScreen(
 
     // 2. Add Habit Dialog
     if (showAddHabitDialog) {
-        var newHabitName by remember { mutableStateOf("") }
+        val context = LocalContext.current
+        val sharedPrefs = remember { context.getSharedPreferences("habit_draft_prefs", Context.MODE_PRIVATE) }
+        var newHabitName by remember { mutableStateOf(sharedPrefs.getString("new_habit_name", "") ?: "") }
+
+        LaunchedEffect(newHabitName) {
+            sharedPrefs.edit().putString("new_habit_name", newHabitName).apply()
+        }
         Dialog(onDismissRequest = { showAddHabitDialog = false }) {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -1185,6 +1446,7 @@ fun HomeScreen(
                             onClick = {
                                 if (newHabitName.isNotBlank()) {
                                     viewModel.addCustomHabit(newHabitName)
+                                    sharedPrefs.edit().remove("new_habit_name").apply()
                                 }
                                 showAddHabitDialog = false
                             },
@@ -1317,5 +1579,13 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // 5. Full Calendar & Library "Read" Dialog
+    if (showFullCalendarDialog) {
+        FullCalendarReadDialog(
+            viewModel = viewModel,
+            onDismiss = { showFullCalendarDialog = false }
+        )
     }
 }

@@ -58,6 +58,7 @@ fun SettingsScreen(
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var restoreJsonText by remember { mutableStateOf("") }
+    var showExternalAppsImportDialog by remember { mutableStateOf(false) }
     var showGoogleAccountDialog by remember { mutableStateOf(false) }
     var tempGoogleEmail by remember { mutableStateOf(viewModel.googleAccountEmail) }
     var isSyncingCloud by remember { mutableStateOf(false) }
@@ -546,6 +547,18 @@ fun SettingsScreen(
                         ) {
                             Text("تصدير ومشاركة 📤", fontSize = 10.sp)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { showExternalAppsImportDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Launch, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("استيراد مذكرات/خواطر من تطبيقات أخرى 🔌", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1348,6 +1361,331 @@ fun SettingsScreen(
                             modifier = Modifier.testTag("confirm_restore_button")
                         ) {
                             Text("بدء الاستيراد الفوري")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showExternalAppsImportDialog) {
+        var importFormat by remember { mutableStateOf("dayone") } // "dayone", "journey", "bulk_text"
+        var importInputText by remember { mutableStateOf("") }
+        var parsedEntriesList by remember { mutableStateOf<List<DiaryEntry>>(emptyList()) }
+        var selectedEntryIndices by remember { mutableStateOf<Set<Int>>(emptySet()) }
+        var editableTitles by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+        var entryTypesMap by remember { mutableStateOf<Map<Int, String>>(emptyMap()) } // index to "diary" or "reflection"
+
+        Dialog(onDismissRequest = { showExternalAppsImportDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.9f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(18.dp)
+                        .fillMaxSize(),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "مستورد اليوميات والخواطر الذكي 🔌",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "يدعم استيراد المذكرات من تطبيقات Day One أو Journey، أو نصوص مجمعة مقسمة بفواصل مخصصة لتوفير نقل مريح وسهل لبياناتك السابقة.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Format Selection Row
+                    Text(
+                        text = "اختر تنسيق الاستيراد:",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { importFormat = "bulk_text" }) {
+                            Text("نص مجمع (---)", fontSize = 11.sp)
+                            RadioButton(selected = importFormat == "bulk_text", onClick = { importFormat = "bulk_text" })
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { importFormat = "journey" }) {
+                            Text("Journey (JSON)", fontSize = 11.sp)
+                            RadioButton(selected = importFormat == "journey", onClick = { importFormat = "journey" })
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { importFormat = "dayone" }) {
+                            Text("Day One (JSON)", fontSize = 11.sp)
+                            RadioButton(selected = importFormat == "dayone", onClick = { importFormat = "dayone" })
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Large Paste Textfield
+                    OutlinedTextField(
+                        value = importInputText,
+                        onValueChange = { importInputText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .testTag("external_import_input"),
+                        placeholder = { 
+                            val placeholderText = when(importFormat) {
+                                "dayone" -> "الصق كود الـ JSON الخاص بـ Day One (الذي يحتوي على قائمة 'entries')..."
+                                "journey" -> "الصق كود الـ JSON أو مصفوفة المدخلات الخاصة بـ Journey..."
+                                else -> "الصق مذكراتك مجمعة هنا، وافصل بين كل مذكرتين بوضع ثلاثة شُرطات (---).\nمثال:\n2026-07-16\nعنوان مذكرتي الأولى\nالمحتوى يكتب هنا...\n---\n2026-07-17\nعنوان مذكرتي الثانية\nالمحتوى يكتب هنا..."
+                            }
+                            Text(placeholderText, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth(), fontSize = 11.sp) 
+                        },
+                        textStyle = TextStyle(fontSize = 12.sp, textAlign = TextAlign.End)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Action buttons or Preview
+                    if (parsedEntriesList.isEmpty()) {
+                        Button(
+                            onClick = {
+                                if (importInputText.isNotBlank()) {
+                                    val parsed = viewModel.parseExternalEntries(importInputText, importFormat)
+                                    if (parsed.isNotEmpty()) {
+                                        parsedEntriesList = parsed
+                                        selectedEntryIndices = parsed.indices.toSet()
+                                        editableTitles = parsed.mapIndexed { idx, entry -> idx to entry.title }.toMap()
+                                        entryTypesMap = parsed.mapIndexed { idx, entry -> idx to entry.entryType }.toMap()
+                                        Toast.makeText(context, "تم تحليل ${parsed.size} مذكرات بنجاح! راجعها بالأسفل.", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "لم نتمكن من تحليل أي مذكرات! يرجى التأكد من التنسيق المحدد أو الرمز البرمجي.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("analyze_external_import_button")
+                        ) {
+                            Text("تحليل ومعاينة المذكرات الذكية 🔍")
+                        }
+                    } else {
+                        Text(
+                            text = "مراجعة المذكرات المحللة (${parsedEntriesList.size}):",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Render list of parsed entries
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1.5f)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                                .padding(8.dp)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(parsedEntriesList.size) { idx ->
+                                    val entry = parsedEntriesList[idx]
+                                    val isSelected = selectedEntryIndices.contains(idx)
+                                    val currentTitle = editableTitles[idx] ?: entry.title
+                                    val currentType = entryTypesMap[idx] ?: "diary"
+
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(10.dp),
+                                            horizontalAlignment = Alignment.End
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Checkbox(
+                                                    checked = isSelected,
+                                                    onCheckedChange = { checked ->
+                                                        selectedEntryIndices = if (checked) {
+                                                            selectedEntryIndices + idx
+                                                        } else {
+                                                            selectedEntryIndices - idx
+                                                        }
+                                                    }
+                                                )
+
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "التاريخ: ${entry.dateString}",
+                                                        fontSize = 11.sp,
+                                                        color = Color.Gray
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(
+                                                                MaterialTheme.colorScheme.primaryContainer,
+                                                                RoundedCornerShape(6.dp)
+                                                            )
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (currentType == "diary") "يومية" else "خاطرة",
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            // Editable Title input
+                                            OutlinedTextField(
+                                                value = currentTitle,
+                                                onValueChange = { newTitle ->
+                                                    editableTitles = editableTitles + (idx to newTitle)
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textStyle = TextStyle(fontSize = 12.sp, textAlign = TextAlign.End),
+                                                placeholder = { Text("أدخل عنواناً للمذكرة...", fontSize = 11.sp, textAlign = TextAlign.End) },
+                                                singleLine = true
+                                            )
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            // Type Switcher Row (Diary vs Reflection)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        entryTypesMap = entryTypesMap + (idx to "reflection")
+                                                    }
+                                                ) {
+                                                    Text("خاطرة", fontSize = 10.sp)
+                                                    RadioButton(
+                                                        selected = currentType == "reflection",
+                                                        onClick = { entryTypesMap = entryTypesMap + (idx to "reflection") }
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        entryTypesMap = entryTypesMap + (idx to "diary")
+                                                    }
+                                                ) {
+                                                    Text("يومية", fontSize = 10.sp)
+                                                    RadioButton(
+                                                        selected = currentType == "diary",
+                                                        onClick = { entryTypesMap = entryTypesMap + (idx to "diary") }
+                                                    )
+                                                }
+                                                Text("نوع التصنيف:", fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(start = 8.dp))
+                                            }
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Text(
+                                                text = if (entry.content.length > 80) entry.content.take(80) + "..." else entry.content,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.DarkGray,
+                                                textAlign = TextAlign.End,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    parsedEntriesList = emptyList()
+                                    selectedEntryIndices = emptySet()
+                                    editableTitles = emptyMap()
+                                    entryTypesMap = emptyMap()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("إعادة تعيين 🔄", fontSize = 11.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    val finalEntriesToImport = parsedEntriesList.filterIndexed { index, _ ->
+                                        selectedEntryIndices.contains(index)
+                                    }.map { entry ->
+                                        // Wait, the filter/map indexes might differ!
+                                        // Let's grab the actual indices from parsedEntriesList
+                                        val origIndex = parsedEntriesList.indexOf(entry)
+                                        entry.copy(
+                                            title = editableTitles[origIndex] ?: entry.title,
+                                            entryType = entryTypesMap[origIndex] ?: entry.entryType
+                                        )
+                                    }
+
+                                    if (finalEntriesToImport.isNotEmpty()) {
+                                        viewModel.insertImportedEntries(finalEntriesToImport)
+                                        Toast.makeText(context, "تم استيراد ${finalEntriesToImport.size} مذكرات بنجاح تام! 🎉", Toast.LENGTH_LONG).show()
+                                        showExternalAppsImportDialog = false
+                                        // Reset states
+                                        importInputText = ""
+                                        parsedEntriesList = emptyList()
+                                        selectedEntryIndices = emptySet()
+                                    } else {
+                                        Toast.makeText(context, "يرجى تحديد مذكرة واحدة على الأقل للاستيراد!", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1.5f).testTag("confirm_external_import_button")
+                            ) {
+                                Text("إتمام الاستيراد السلس (${selectedEntryIndices.size}) 📥", fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showExternalAppsImportDialog = false }) {
+                            Text("إغلاق وإلغاء")
                         }
                     }
                 }

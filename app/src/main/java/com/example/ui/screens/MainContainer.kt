@@ -43,7 +43,7 @@ fun MainContainer(
     viewModel: DiaryViewModel,
     onNavigateToCompose: () -> Unit
 ) {
-    var currentTab by remember { mutableStateOf(0) }
+    val currentTab = viewModel.currentTabState
     var isBubbleExpanded by remember { mutableStateOf(false) }
     var showDailyTasksDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -102,7 +102,7 @@ fun MainContainer(
 
                             // Green button "تجهيز جلسة العلاج 🎓"
                             Button(
-                                onClick = { currentTab = 3 },
+                                onClick = { viewModel.currentTabState = 3 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF4A6B5D),
                                     contentColor = Color.White
@@ -216,35 +216,35 @@ fun MainContainer(
                 ) {
                     NavigationBarItem(
                         selected = currentTab == 4,
-                        onClick = { currentTab = 4 },
+                        onClick = { viewModel.currentTabState = 4 },
                         icon = { Icon(Icons.Default.Settings, contentDescription = "الإعدادات") },
                         label = { Text("الإعدادات", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("nav_settings")
                     )
                     NavigationBarItem(
                         selected = currentTab == 3,
-                        onClick = { currentTab = 3 },
+                        onClick = { viewModel.currentTabState = 3 },
                         icon = { Icon(Icons.Default.TrendingUp, contentDescription = "التقدم والبيانات") },
                         label = { Text("التقدم والبيانات", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("nav_report")
                     )
                     NavigationBarItem(
                         selected = currentTab == 2,
-                        onClick = { currentTab = 2 },
+                        onClick = { viewModel.currentTabState = 2 },
                         icon = { Icon(Icons.Default.Psychology, contentDescription = "المستشار الذكي") },
                         label = { Text("المستشار", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("nav_consultant")
                     )
                     NavigationBarItem(
                         selected = currentTab == 1,
-                        onClick = { currentTab = 1 },
+                        onClick = { viewModel.currentTabState = 1 },
                         icon = { Icon(Icons.Default.Book, contentDescription = "اليوميات") },
                         label = { Text("اليوميات", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("nav_diaries")
                     )
                     NavigationBarItem(
                         selected = currentTab == 0,
-                        onClick = { currentTab = 0 },
+                        onClick = { viewModel.currentTabState = 0 },
                         icon = { Icon(Icons.Default.Home, contentDescription = "الرئيسية") },
                         label = { Text("الرئيسية", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("nav_home")
@@ -519,11 +519,11 @@ fun MainContainer(
                                     }
                                     QuickShortcutButton("🧠 المستشار") {
                                         isBubbleExpanded = false
-                                        currentTab = 2
+                                        viewModel.currentTabState = 2
                                     }
                                     QuickShortcutButton("🎓 العلاج") {
                                         isBubbleExpanded = false
-                                        currentTab = 3
+                                        viewModel.currentTabState = 3
                                     }
                                 }
                             }
