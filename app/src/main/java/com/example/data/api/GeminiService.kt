@@ -13,8 +13,7 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    // التعديل النهائي القاطع: استخدام الرابط المستقر v1 رسميًا
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
     var customApiKey: String? = null
 
@@ -30,7 +29,6 @@ object GeminiService {
      * Common generic call to Gemini REST API.
      */
     private suspend fun callGemini(prompt: String, systemInstruction: String? = null): String = withContext(Dispatchers.IO) {
-        // تنظيف المفتاح من أي مسافات زائدة ناتجة عن النسخ
         val apiKey = customApiKey?.trim()
         if (apiKey.isNullOrBlank()) {
             Log.e(TAG, "Custom API Key is missing!")
@@ -38,27 +36,25 @@ object GeminiService {
         }
 
         try {
+            // دمج الأوامر في نص واحد لضمان قبول السيرفر للطلب 100% بدون أخطاء هيكلية
+            val finalPrompt = if (!systemInstruction.isNullOrBlank()) {
+                "$systemInstruction\n\n---\n\nالمحتوى المُراد معالجته:\n$prompt"
+            } else {
+                prompt
+            }
+
+            // بناء أبسط هيكل JSON معتمد عالمياً لدى جوجل
             val root = JSONObject()
             val contentsArray = JSONArray()
             val contentObj = JSONObject()
             val partsArray = JSONArray()
             val partObj = JSONObject()
             
-            partObj.put("text", prompt)
+            partObj.put("text", finalPrompt)
             partsArray.put(partObj)
             contentObj.put("parts", partsArray)
             contentsArray.put(contentObj)
             root.put("contents", contentsArray)
-
-            if (systemInstruction != null) {
-                val sysObj = JSONObject()
-                val sysParts = JSONArray()
-                val sysPart = JSONObject()
-                sysPart.put("text", systemInstruction)
-                sysParts.put(sysPart)
-                sysObj.put("parts", sysParts)
-                root.put("systemInstruction", sysObj)
-            }
 
             val requestBody = root.toString().toRequestBody(mediaType)
             val request = Request.Builder()
@@ -143,7 +139,7 @@ object GeminiService {
             
             التوجيهات الهامة:
             1. أجب دائمًا باللغة العربية الفصحى الدافئة والداعمة والمهنية (كأنك معالج نفسي أو صديق حكيم).
-            2. استخدم التواريخ والأوقات والتفاصيل المذكورة in سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين، متى تحسن مزاجه، تكرار الأشخاص، إلخ).
+            2. استخدم التواريخ والأوقات والتفاصيل المذكورة في سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين، متى تحسن مزاجه، تكرار الأشخاص، إلخ).
             3. إذا سأل المستخدم عن نمط معين (مثلاً: "ما الذي يجعلني سعيداً؟")، قم بتحليل اليوميات التاريخية المتاحة واستخلص الأنماط النفسية المشتركة (مثال: "تحسن مزاجك بنسبة 80% في الأيام التي مارست فيها الرياضة أو ذكرت فيها عائلتك").
             4. حافظ على سرية تامة وأمان واحرص على توجيهه لزيارة المعالج عند استشعار تدهور حاد أو خطورة.
         """.trimIndent()
@@ -174,7 +170,7 @@ object GeminiService {
             2. **مخطط الحالة المزاجية**: تكرار المشاعر وتطورها ونسبتها العامة.
             3. **أبرز الإنجازات والتقدم السلوكي**: السلوكيات الإيجابية والالتزام بالعادات.
             4. **الإخفاقات ومصادر القلق والتوتر**: المواضيع الحساسة والمخاوف ومثيرات القلق المكتشفة.
-            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت في المذكرات.
+            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت in المذكرات.
             6. **اقتراحات ومحاور للنقاش مع المعالج**: قائمة بـ 3-5 أسئلة أو نقاط يوصى بطرحها في الجلسة القادمة.
             7. **مقارنة بالفترة السابقة**: هل هناك تحسن ملحوظ أم تراجع أم استقرار.
         """.trimIndent()
@@ -233,7 +229,7 @@ object GeminiService {
             Only include emotions from this list that are relevant:
             (سعيد، مرتاح، متحمس، طبيعي، حزين، مكتئب، قلق، غاضب، مرهق، ممتن)
             Return a single-line, highly concise response in Arabic listing the estimated percentages, separated by commas.
-            Example response format: "80% سعيد, 15% mمتن, 5% مرتاح".
+            Example response format: "80% سعيد, 15% ممتن, 5% مرتاح".
             Do not write any introductory or trailing text. Only the percentage values.
         """.trimIndent()
 
