@@ -1,7 +1,6 @@
 package com.example.data.api
 
 import android.util.Log
-import com.example.BuildConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -14,7 +13,8 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    // تم تحديث الرابط هنا إلى النسخة المستقرة v1 للقضاء على خطأ 404 تماماً
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
 
     // Expose a mutable customApiKey that can be overridden at runtime by the user
     var customApiKey: String? = null
@@ -295,4 +295,3 @@ object GeminiService {
         return callGemini(prompt, systemInstruction)
     }
 }
-//
