@@ -17,8 +17,16 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Build with Gradle
-      run: gradle assembleDebug
+    # خطوة سحرية لإنشاء أداة البناء بالنسخة المتوافقة مع تطبيقك
+    - name: Generate Correct Gradle Wrapper
+      run: gradle wrapper
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # البناء باستخدام النسخة الصحيحة للتطبيق
+    - name: Build with Correct Gradle Version
+      run: ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
