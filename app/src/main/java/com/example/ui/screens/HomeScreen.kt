@@ -106,6 +106,20 @@ fun HomeScreen(
     val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greetingTitle = if (currentHour < 12) "صباح التفاؤل والنشاط والتصالح ☀️" else "مساء الهدوء وراحة البال والاسترخاء 🌙"
 
+    LaunchedEffect(viewModel.shouldOpenMoodDialog) {
+        if (viewModel.shouldOpenMoodDialog) {
+            showMoodDialog = true
+            viewModel.shouldOpenMoodDialog = false
+        }
+    }
+
+    LaunchedEffect(viewModel.shouldOpenDailyTasksDialog) {
+        if (viewModel.shouldOpenDailyTasksDialog) {
+            showAddHabitDialog = true
+            viewModel.shouldOpenDailyTasksDialog = false
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -202,117 +216,116 @@ fun HomeScreen(
             }
         }
 
-        // 2. Active Now & Quick actions
+        // 2. Active Now & Quick actions replaced by Spiritual Card
         item {
+            var dhikrCount by remember { mutableStateOf(0) }
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.5f))
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { dhikrCount++ },
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3D2F)), // Deep spiritual green
+                border = BorderStroke(1.5.dp, Color(0xFFD4AF37)) // Gold accent border
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.End
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Decorative element
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFE9F0EC), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        Text("✨", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("✦", fontSize = 18.sp, color = Color(0xFFFFD700))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("✨", fontSize = 16.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Primary phrase
+                    Text(
+                        text = "صلِّ على سيدك النبي ﷺ",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFFD700) // Golden color
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Secondary phrase
+                    Text(
+                        text = "والباقيات الصالحات خير.",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFE2D6C5) // Soft warm beige/cream
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Beautiful framed box for Al-Baqiyat Al-Salihat
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2E4F43).copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("إشعار مثبت بالأندرويد", fontSize = 9.sp, color = Color(0xFF4A6B5D), fontWeight = FontWeight.Bold)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("يومياتي AI • نشط الآن", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF26332C))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFF4CAF50), CircleShape)
+                            Text(
+                                text = "سبحان الله ✦ والحمد لله ✦ ولا إله إلا الله ✦ والله أكبر",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    lineHeight = 22.sp
+                                ),
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "كيف تشعر الآن يا صديقي؟ 😊 اضغط على أي من الاختصارات السريعة أدناه لتدوين مذكراتك أو رصد حالتك المزاجية مباشرة وبمنتهى الخصوصية والأمان.",
-                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
-                        color = Color.Gray,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Dynamic Clickable / Counter Interaction
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier
+                            .background(Color(0xFFD4AF37).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        val quickActions = listOf(
-                            Triple("صورة", Icons.Default.PhotoCamera, "photo"),
-                            Triple("مهمة", Icons.Default.CheckCircle, "task"),
-                            Triple("مستشار", Icons.Default.Psychology, "consultant"),
-                            Triple("مزاجي", Icons.Default.Favorite, "mood"),
-                            Triple("تسجيل", Icons.Default.Mic, "record"),
-                            Triple("كتابة", Icons.Default.Create, "write")
+                        Text(
+                            text = if (dhikrCount > 0) "تم الذكر والتسبيح: $dhikrCount مرّات 📿" else "انقر لتسجيل تسبيحة أو صلاة على النبي 📿",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFFFFD700)
                         )
-
-                        quickActions.forEach { (title, icon, actionKey) ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        when (actionKey) {
-                                            "write", "record", "photo" -> onNavigateToCompose()
-                                            "mood" -> showMoodDialog = true
-                                            "task" -> showAddHabitDialog = true
-                                            "consultant" -> showQuickConsultantDialog = true
-                                        }
-                                    }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .background(Color(0xFFFAF7F0), RoundedCornerShape(12.dp))
-                                        .border(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = title,
-                                        tint = when (actionKey) {
-                                            "write" -> Color(0xFF3F51B5)
-                                            "record" -> Color(0xFF4CAF50)
-                                            "mood" -> Color(0xFFE91E63)
-                                            "consultant" -> Color(0xFF009688)
-                                            "task" -> Color(0xFF9C27B0)
-                                            "photo" -> Color(0xFF03A9F4)
-                                            else -> Color.Gray
-                                        },
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF26332C))
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Divider(color = Color(0xFFE3D9C6).copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("الخصوصية محمية بقفل PIN 🔒", fontSize = 10.sp, color = Color.Gray)
-                        Text("انقر على أي اختصار لتشغيله في التطبيق", fontSize = 10.sp, color = Color.Gray)
                     }
                 }
             }

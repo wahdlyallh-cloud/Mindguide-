@@ -14,7 +14,10 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+    // Expose a mutable customApiKey that can be overridden at runtime by the user
+    var customApiKey: String? = null
 
     // Set 60 seconds timeouts as mandated by OkHttp guidelines
     private val client = OkHttpClient.Builder()
@@ -29,10 +32,10 @@ object GeminiService {
      * Common generic call to Gemini REST API.
      */
     private suspend fun callGemini(prompt: String, systemInstruction: String? = null): String = withContext(Dispatchers.IO) {
-        val apiKey = BuildConfig.GEMINI_API_KEY
-        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            Log.e(TAG, "API Key is missing or placeholder!")
-            return@withContext "خطأ: لم يتم تهيئة مفتاح API الخاص بـ Gemini. يرجى إضافته في لوحة الأسرار (Secrets)."
+        val apiKey = customApiKey
+        if (apiKey.isNullOrBlank()) {
+            Log.e(TAG, "Custom API Key is missing!")
+            return@withContext "خطأ: لم يتم تفعيل مفتاح الـ API الخاص بـ Gemini. يجب عليك إضافة مفتاح الـ API الخاص بك لتتمكن من استخدام ميزات الذكاء الاصطناعي والمستشار الذكي بنجاح. يرجى التوجه إلى صفحة الإعدادات ⚙️ بالأعلى لإدخال مفتاح API من Google Gemini الخاص بك لتفعيل الخدمة."
         }
 
         try {
@@ -174,7 +177,7 @@ object GeminiService {
             2. **مخطط الحالة المزاجية**: تكرار المشاعر وتطورها ونسبتها العامة.
             3. **أبرز الإنجازات والتقدم السلوكي**: السلوكيات الإيجابية والالتزام بالعادات.
             4. **الإخفاقات ومصادر القلق والتوتر**: المواضيع الحساسة والمخاوف ومثيرات القلق المكتشفة.
-            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت in المذكرات.
+            5. **الأفكار التلقائية والأخطاء المعرفية**: أي أنماط تفكير مشوهة تكررت في المذكرات.
             6. **اقتراحات ومحاور للنقاش مع المعالج**: قائمة بـ 3-5 أسئلة أو نقاط يوصى بطرحها في الجلسة القادمة.
             7. **مقارنة بالفترة السابقة**: هل هناك تحسن ملحوظ أم تراجع أم استقرار.
         """.trimIndent()
@@ -186,6 +189,7 @@ object GeminiService {
 
     /**
      * AI Fadfada Chat session within a single diary entry.
+     * Takes the diary context (text, attachments details) and the chat history, and returns the AI's warm response.
      */
     suspend fun getFadfadaResponse(
         currentDraftContent: String,
@@ -291,4 +295,3 @@ object GeminiService {
         return callGemini(prompt, systemInstruction)
     }
 }
-//

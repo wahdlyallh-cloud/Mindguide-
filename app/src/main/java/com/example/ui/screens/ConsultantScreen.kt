@@ -92,6 +92,13 @@ fun ConsultantScreen(
         }
     }
 
+    LaunchedEffect(viewModel.shouldOpenVoiceCallDialog) {
+        if (viewModel.shouldOpenVoiceCallDialog) {
+            showVoiceCallDialog = true
+            viewModel.shouldOpenVoiceCallDialog = false
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

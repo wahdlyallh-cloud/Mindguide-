@@ -9,8 +9,10 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.R
 
 class PersistentNotificationService : Service() {
 
@@ -34,6 +36,20 @@ class PersistentNotificationService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
 
+        // Helper to build action intents
+        fun createActionPendingIntent(action: String, requestCode: Int): PendingIntent {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("open_action", action)
+            }
+            return PendingIntent.getActivity(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+        }
+
         // PendingIntent for main content click (opens main screen)
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -45,48 +61,24 @@ class PersistentNotificationService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        // PendingIntent for Action 1: Smart Consultant (opens tab 2)
-        val consultantIntent = Intent(this, MainActivity::class.java).apply {
-            setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("open_tab", 2)
-        }
-        val consultantPendingIntent = PendingIntent.getActivity(
-            this,
-            3002,
-            consultantIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-        )
-
-        // PendingIntent for Action 2: Write Diary (opens compose screen)
-        val composeIntent = Intent(this, MainActivity::class.java).apply {
-            setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("open_compose", true)
-        }
-        val composePendingIntent = PendingIntent.getActivity(
-            this,
-            3003,
-            composeIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
-        )
+        // Build the RemoteViews
+        val remoteViews = RemoteViews(packageName, R.layout.notification_custom)
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_camera, createActionPendingIntent("photo", 4001))
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_check, createActionPendingIntent("task", 4002))
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_consultant, createActionPendingIntent("consultant", 4003))
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_heart, createActionPendingIntent("mood", 4004))
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_mic, createActionPendingIntent("record", 4005))
+        remoteViews.setOnClickPendingIntent(R.id.btn_notif_pencil, createActionPendingIntent("write", 4006))
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_menu_today)
-            .setContentTitle("يومياتي AI والمستشار النفسي 🧠")
-            .setContentText("اضغط للدخول السريع وجلسات التدوين والاستشارة اليومية.")
+            .setCustomContentView(remoteViews)
+            .setCustomBigContentView(remoteViews)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // lock screen visible
             .setContentIntent(mainPendingIntent)
-            .addAction(
-                android.R.drawable.ic_menu_help,
-                "المستشار النفسي 🧠",
-                consultantPendingIntent
-            )
-            .addAction(
-                android.R.drawable.ic_menu_edit,
-                "تدوين يومية جديدة 📝",
-                composePendingIntent
-            )
             .build()
 
         try {

@@ -96,6 +96,38 @@ class MainActivity : ComponentActivity() {
         if (openCompose) {
             viewModel.currentScreenState = "compose"
         }
+        
+        val openAction = intent.getStringExtra("open_action")
+        if (openAction != null) {
+            when (openAction) {
+                "photo" -> {
+                    viewModel.currentScreenState = "compose"
+                    viewModel.shouldSelectPhotoInCompose = true
+                }
+                "task" -> {
+                    viewModel.currentTabState = 0 // Home screen
+                    viewModel.currentScreenState = "main"
+                    viewModel.shouldOpenDailyTasksDialog = true
+                }
+                "consultant" -> {
+                    viewModel.currentTabState = 2 // Consultant tab
+                    viewModel.currentScreenState = "main"
+                }
+                "mood" -> {
+                    viewModel.currentTabState = 0 // Home screen
+                    viewModel.currentScreenState = "main"
+                    viewModel.shouldOpenMoodDialog = true
+                }
+                "record" -> {
+                    viewModel.currentTabState = 2 // Consultant tab
+                    viewModel.currentScreenState = "main"
+                    viewModel.shouldOpenVoiceCallDialog = true
+                }
+                "write" -> {
+                    viewModel.currentScreenState = "compose"
+                }
+            }
+        }
     }
 
     companion object {

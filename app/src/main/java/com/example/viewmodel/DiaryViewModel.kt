@@ -46,8 +46,29 @@ class DiaryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("yawmiyati_prefs", Context.MODE_PRIVATE)
 
+    var customApiKey by mutableStateOf(prefs.getString("custom_api_key", "") ?: "")
+        private set
+
+    fun updateCustomApiKey(key: String) {
+        customApiKey = key
+        prefs.edit().putString("custom_api_key", key).apply()
+        GeminiService.customApiKey = if (key.isBlank()) null else key
+    }
+
+    init {
+        val savedKey = prefs.getString("custom_api_key", "") ?: ""
+        GeminiService.customApiKey = if (savedKey.isBlank()) null else savedKey
+    }
+
     var currentTabState by mutableStateOf(0)
     var currentScreenState by mutableStateOf("main")
+
+    // Global state triggers from notification quick action buttons
+    var shouldOpenMoodDialog by mutableStateOf(false)
+    var shouldOpenDailyTasksDialog by mutableStateOf(false)
+    var shouldOpenVoiceCallDialog by mutableStateOf(false)
+    var shouldSelectPhotoInCompose by mutableStateOf(false)
+    var shouldStartRecordingInCompose by mutableStateOf(false)
 
     var isFloatingBallEnabled by mutableStateOf(prefs.getBoolean("floating_ball_enabled", false))
         private set

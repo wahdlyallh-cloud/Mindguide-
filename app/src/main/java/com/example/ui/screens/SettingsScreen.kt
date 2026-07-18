@@ -47,6 +47,7 @@ fun SettingsScreen(
 
     // Sub-dialog states
     var showBackupSyncDialog by remember { mutableStateOf(false) }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
     var showFavoritesDialog by remember { mutableStateOf(false) }
     var showArchiveDialog by remember { mutableStateOf(false) }
     var showTrashDialog by remember { mutableStateOf(false) }
@@ -87,6 +88,72 @@ fun SettingsScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Divider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+        }
+
+        // --- GROUP 0: CUSTOM GEMINI API KEY ---
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("custom_api_key_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showApiKeyDialog = true }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronLeft,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "مفتاح API الخاص بك 🔑",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.End
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val keyStatus = if (viewModel.customApiKey.isNotBlank()) "مفعل ومخصص ومحفوظ محلياً" else "غير مخصص (يستخدم المفتاح الافتراضي)"
+                            Text(
+                                text = "حالة المفتاح: $keyStatus",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VpnKey,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // --- GROUP 1: FLOATING BALL ---
@@ -411,6 +478,154 @@ fun SettingsScreen(
                         textAlign = TextAlign.End,
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // --- DIALOG 0: CUSTOM GEMINI API KEY ---
+    // ==========================================
+    if (showApiKeyDialog) {
+        var tempKey by remember { mutableStateOf(viewModel.customApiKey) }
+        var isKeyVisible by remember { mutableStateOf(false) }
+
+        Dialog(onDismissRequest = { showApiKeyDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { showApiKeyDialog = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                        }
+                        Text(
+                            text = "إعدادات مفتاح API الخاص بك 🔑",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "يتيح لك هذا القسم استخدام مفتاح الـ API الخاص بك من Google Gemini للتشغيل المستقل تماماً للتطبيق.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "ملاحظة: يتم تخزين هذا المفتاح محلياً وبشكل آمن تماماً على جهازك الخاص فقط، ولا يتم إرساله أو مشاركته مع أي طرف خارجي سوى خوادم Google الرسمية لمعالجة طلباتك الذكية.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = tempKey,
+                        onValueChange = { tempKey = it },
+                        placeholder = { Text("أدخل مفتاح AI Studio (مثلاً: AIzaSy...)") },
+                        label = { Text("مفتاح Gemini API") },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(textAlign = TextAlign.End),
+                        singleLine = true,
+                        visualTransformation = if (isKeyVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
+                                Icon(
+                                    imageVector = if (isKeyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "تبديل الرؤية"
+                                )
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Helpful instructions link/button
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://aistudio.google.com/")
+                                )
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "تعذر فتح الرابط المباشر.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "احصل على مفتاح مجاني من Google AI Studio 🌐",
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Cancel/Clear button
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.updateCustomApiKey("")
+                                tempKey = ""
+                                Toast.makeText(context, "تم حذف المفتاح المخصص والرجوع للوضع الافتراضي", Toast.LENGTH_SHORT).show()
+                                showApiKeyDialog = false
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                            border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.5f)),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("مسح المفتاح 🗑️", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        // Save button
+                        Button(
+                            onClick = {
+                                if (tempKey.isNotBlank()) {
+                                    viewModel.updateCustomApiKey(tempKey.trim())
+                                    Toast.makeText(context, "تم حفظ مفتاح الـ API المخصص بنجاح! 🎉", Toast.LENGTH_SHORT).show()
+                                    showApiKeyDialog = false
+                                } else {
+                                    Toast.makeText(context, "يرجى كتابة المفتاح أولاً أو استخدام زر المسح", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("حفظ المفتاح 💾", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
             }
         }

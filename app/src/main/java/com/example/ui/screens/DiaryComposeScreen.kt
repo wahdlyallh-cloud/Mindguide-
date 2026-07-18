@@ -102,6 +102,22 @@ fun DiaryComposeScreen(
         }
     }
 
+    LaunchedEffect(viewModel.shouldSelectPhotoInCompose) {
+        if (viewModel.shouldSelectPhotoInCompose) {
+            viewModel.draftPhotoPath = "photo_scenery_sunset_calm.jpg"
+            Toast.makeText(context, "📸 تم إرفاق صورة اليومية بنجاح!", Toast.LENGTH_SHORT).show()
+            viewModel.shouldSelectPhotoInCompose = false
+        }
+    }
+
+    LaunchedEffect(viewModel.shouldStartRecordingInCompose) {
+        if (viewModel.shouldStartRecordingInCompose) {
+            isRecordingVoice = true
+            Toast.makeText(context, "🎙️ بدأ تسجيل الصوت تلقائياً!", Toast.LENGTH_SHORT).show()
+            viewModel.shouldStartRecordingInCompose = false
+        }
+    }
+
     // Auto-update transcription based on active moods when stopping recording
     fun generateMoodBasedTranscript(): String {
         return when {
