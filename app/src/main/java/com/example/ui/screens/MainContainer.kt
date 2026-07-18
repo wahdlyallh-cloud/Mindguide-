@@ -79,16 +79,16 @@ fun MainContainer(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Left Side (Lock & Prepare button)
+                        // Left Side (Lock, Prepare button & My Reflections)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             // Lock icon container
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -96,7 +96,7 @@ fun MainContainer(
                                     imageVector = Icons.Default.Lock,
                                     contentDescription = "خصوصية تامة وآمنة",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                             }
 
@@ -107,50 +107,82 @@ fun MainContainer(
                                     containerColor = Color(0xFF4A6B5D),
                                     contentColor = Color.White
                                 ),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                modifier = Modifier.height(36.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
                             ) {
                                 Text(
-                                    text = "تجهيز جلسة العلاج 🎓",
-                                    fontSize = 11.sp,
+                                    text = "جلسة العلاج 🎓",
+                                    fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+                            }
+
+                            // Beautiful "خواطري" button
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFFAF7F0))
+                                    .clickable { onNavigateToCompose() }
+                                    .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    .height(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Create,
+                                        contentDescription = "خواطري",
+                                        tint = Color(0xFF8C6D15),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = "خواطري ✍️",
+                                        fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF8C6D15)
+                                    )
+                                }
                             }
                         }
 
                         // Right Side (Title & Subtitle with Brain Icon)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             // Daily Tasks button (المهام اليومية) styled beautifully with dynamic pending task badge
                             Box(
                                 modifier = Modifier
-                                    .padding(end = 4.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .padding(end = 2.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(Color(0xFFE9F0EC))
                                     .clickable { showDailyTasksDialog = true }
-                                    .border(1.dp, Color(0xFF4A6B5D).copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    .testTag("top_bar_tasks_badge_button")
+                                    .border(1.dp, Color(0xFF4A6B5D).copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    .height(32.dp)
+                                    .testTag("top_bar_tasks_badge_button"),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     // Soft red badge for pending tasks
                                     if (pendingCount > 0) {
                                         Box(
                                             modifier = Modifier
                                                 .background(Color(0xFFE53935), CircleShape)
-                                                .size(16.dp),
+                                                .size(14.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = pendingCount.toString(),
                                                 color = Color.White,
-                                                fontSize = 9.sp,
+                                                fontSize = 8.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -159,20 +191,20 @@ fun MainContainer(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
                                             tint = Color(0xFF4CAF50),
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(12.dp)
                                         )
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.Assignment,
                                             contentDescription = null,
                                             tint = Color(0xFF4A6B5D),
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(12.dp)
                                         )
                                     }
                                     
                                     Text(
                                         text = "المهام اليومية",
-                                        fontSize = 11.sp,
+                                        fontSize = 9.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF4A6B5D)
                                     )

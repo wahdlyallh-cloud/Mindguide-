@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,6 +55,7 @@ fun SettingsScreen(
     var showRemindersDialog by remember { mutableStateOf(false) }
     var showLanguagesDialog by remember { mutableStateOf(false) }
     var showRateDialog by remember { mutableStateOf(false) }
+    var showContactDialog by remember { mutableStateOf(false) }
 
     // Backup & Import sub-states
     var showBackupDialog by remember { mutableStateOf(false) }
@@ -129,7 +131,7 @@ fun SettingsScreen(
                                 textAlign = TextAlign.End
                             )
                             Spacer(modifier = Modifier.height(2.dp))
-                            val keyStatus = if (viewModel.customApiKey.isNotBlank()) "مفعل ومخصص ومحفوظ محلياً" else "غير مخصص (يستخدم المفتاح الافتراضي)"
+                            val keyStatus = if (viewModel.customApiKey.isNotBlank()) "مفعل ومحفوظ محلياً بشكل آمن" else "غير مضاف ⚠️ (الذكاء الاصطناعي معطل)"
                             Text(
                                 text = "حالة المفتاح: $keyStatus",
                                 style = MaterialTheme.typography.labelSmall,
@@ -451,6 +453,25 @@ fun SettingsScreen(
                         },
                         onClick = { showRateDialog = true }
                     )
+                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), modifier = Modifier.padding(horizontal = 16.dp))
+
+                    // Contact Owner
+                    SettingsRowItem(
+                        title = "تواصل مع مالك التطبيق للاقتراح والتطوير",
+                        subtitle = "راسلنا باقتراحاتك وملاحظاتك القيمة لتطوير التطبيق",
+                        icon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE0F2FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(20.dp))
+                            }
+                        },
+                        onClick = { showContactDialog = true }
+                    )
                 }
             }
         }
@@ -597,7 +618,7 @@ fun SettingsScreen(
                             onClick = {
                                 viewModel.updateCustomApiKey("")
                                 tempKey = ""
-                                Toast.makeText(context, "تم حذف المفتاح المخصص والرجوع للوضع الافتراضي", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "تم حذف المفتاح المخصص بالكامل وتعطيل الخدمة", Toast.LENGTH_SHORT).show()
                                 showApiKeyDialog = false
                             },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
@@ -1198,6 +1219,161 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("إرسال التقييم الفوري 🌟")
+                    }
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // --- DIALOG 7.5: CONTACT OWNER DIALOG ---
+    // ==========================================
+    if (showContactDialog) {
+        Dialog(onDismissRequest = { showContactDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF1B3D2F).copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    // Header Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { showContactDialog = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "تواصل مع مالك التطبيق 📬",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF1B3D2F)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("✨", fontSize = 16.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Message box
+                    Text(
+                        text = "هذا هو البريد الإلكتروني الخاص بمالك التطبيق ويمكنك التواصل معه من خلاله:",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, lineHeight = 20.sp),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Email highlight Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("email", "wahdlyallh@gmail.com")
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "📋 تم نسخ البريد الإلكتروني بنجاح!", Toast.LENGTH_SHORT).show()
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "نسخ البريد",
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "wahdlyallh@gmail.com",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                ),
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Personal Statement text
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFFAF7F0), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFFE3D9C6).copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "أنا مجرد شخص يستخدم هذا التطبيق لتطوير نفسه وتسهيل الحياة على نفسه وعلى غيره من خلال الاستفادة بالتطور التكنولوجي والذكاء الاصطناعي؛ وعليه فإنني أقبل أي نقد أو نصيحة تفيدنا جميعا. وشكرًا...",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            color = Color(0xFF475569),
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Buttons Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Send Email Button
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:wahdlyallh@gmail.com")
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "اقتراح وتطوير - تطبيق يومياتي AI")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    // Fallback to copy if no mail client
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("email", "wahdlyallh@gmail.com")
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "لم يتم العثور على تطبيق بريد إلكتروني، تم نسخ البريد بنجاح!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B3D2F))
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("مراسلة الآن ✉️", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        // Dismiss/Close button
+                        OutlinedButton(
+                            onClick = { showContactDialog = false },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("إغلاق", fontSize = 12.sp)
+                        }
                     }
                 }
             }
