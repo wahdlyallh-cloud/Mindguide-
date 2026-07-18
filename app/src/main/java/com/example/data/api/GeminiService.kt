@@ -13,13 +13,11 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    // استخدام v1beta المرنة والمخصصة لمفاتيح وميزات AI Studio بشكل كامل
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    // التعديل النهائي القاطع: استخدام الرابط المستقر v1 رسميًا
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
 
-    // Expose a mutable customApiKey that can be overridden at runtime by the user
     var customApiKey: String? = null
 
-    // Set 60 seconds timeouts as mandated by OkHttp guidelines
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -32,7 +30,7 @@ object GeminiService {
      * Common generic call to Gemini REST API.
      */
     private suspend fun callGemini(prompt: String, systemInstruction: String? = null): String = withContext(Dispatchers.IO) {
-        // هنا السر السحري: تنظيف المفتاح من أي مسافات زائدة أو سطور فارغة ناتجة عن النسخ من الموبايل
+        // تنظيف المفتاح من أي مسافات زائدة ناتجة عن النسخ
         val apiKey = customApiKey?.trim()
         if (apiKey.isNullOrBlank()) {
             Log.e(TAG, "Custom API Key is missing!")
@@ -40,7 +38,6 @@ object GeminiService {
         }
 
         try {
-            // Build direct REST payload
             val root = JSONObject()
             val contentsArray = JSONArray()
             val contentObj = JSONObject()
@@ -53,7 +50,6 @@ object GeminiService {
             contentsArray.put(contentObj)
             root.put("contents", contentsArray)
 
-            // System instructions if present
             if (systemInstruction != null) {
                 val sysObj = JSONObject()
                 val sysParts = JSONArray()
@@ -147,7 +143,7 @@ object GeminiService {
             
             التوجيهات الهامة:
             1. أجب دائمًا باللغة العربية الفصحى الدافئة والداعمة والمهنية (كأنك معالج نفسي أو صديق حكيم).
-            2. استخدم التواريخ والأوقات والتفاصيل المذكورة في سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين، متى تحسن مزاجه، تكرار الأشخاص، إلخ).
+            2. استخدم التواريخ والأوقات والتفاصيل المذكورة in سياق اليوميات لتجيب بدقة كاملة على أسئلة المستخدم (مثل: ماذا حدث في تاريخ معين، متى تحسن مزاجه، تكرار الأشخاص، إلخ).
             3. إذا سأل المستخدم عن نمط معين (مثلاً: "ما الذي يجعلني سعيداً؟")، قم بتحليل اليوميات التاريخية المتاحة واستخلص الأنماط النفسية المشتركة (مثال: "تحسن مزاجك بنسبة 80% في الأيام التي مارست فيها الرياضة أو ذكرت فيها عائلتك").
             4. حافظ على سرية تامة وأمان واحرص على توجيهه لزيارة المعالج عند استشعار تدهور حاد أو خطورة.
         """.trimIndent()
@@ -190,7 +186,6 @@ object GeminiService {
 
     /**
      * AI Fadfada Chat session within a single diary entry.
-     * Takes the diary context (text, attachments details) and the chat history, and returns the AI's warm response.
      */
     suspend fun getFadfadaResponse(
         currentDraftContent: String,
@@ -238,7 +233,7 @@ object GeminiService {
             Only include emotions from this list that are relevant:
             (سعيد، مرتاح، متحمس، طبيعي، حزين، مكتئب، قلق، غاضب، مرهق، ممتن)
             Return a single-line, highly concise response in Arabic listing the estimated percentages, separated by commas.
-            Example response format: "80% سعيد, 15% ممتن, 5% مرتاح".
+            Example response format: "80% سعيد, 15% mمتن, 5% مرتاح".
             Do not write any introductory or trailing text. Only the percentage values.
         """.trimIndent()
 
