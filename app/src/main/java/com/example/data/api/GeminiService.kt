@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit
 
 object GeminiService {
     private const val TAG = "GeminiService"
-    // تم تحديث الرابط هنا إلى النسخة المستقرة v1 للقضاء على خطأ 404 تماماً
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+    // استخدام v1beta المرنة والمخصصة لمفاتيح وميزات AI Studio بشكل كامل
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
     // Expose a mutable customApiKey that can be overridden at runtime by the user
     var customApiKey: String? = null
@@ -32,7 +32,8 @@ object GeminiService {
      * Common generic call to Gemini REST API.
      */
     private suspend fun callGemini(prompt: String, systemInstruction: String? = null): String = withContext(Dispatchers.IO) {
-        val apiKey = customApiKey
+        // هنا السر السحري: تنظيف المفتاح من أي مسافات زائدة أو سطور فارغة ناتجة عن النسخ من الموبايل
+        val apiKey = customApiKey?.trim()
         if (apiKey.isNullOrBlank()) {
             Log.e(TAG, "Custom API Key is missing!")
             return@withContext "خطأ: لم يتم تفعيل مفتاح الـ API الخاص بـ Gemini. يجب عليك إضافة مفتاح الـ API الخاص بك لتتمكن من استخدام ميزات الذكاء الاصطناعي والمستشار الذكي بنجاح. يرجى التوجه إلى صفحة الإعدادات ⚙️ بالأعلى لإدخال مفتاح API من Google Gemini الخاص بك لتفعيل الخدمة."
